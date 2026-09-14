@@ -14,6 +14,7 @@ PORT = "8080"
 BASE_PATH = "/api"
 DATABASE_URL = "file:./data/wuno.db"
 CHROME_PATH = "/repl/tools/bin/chromium"
+PAIRING_PHONE_NUMBER = "6285189784830"
 
 [services.development]
 run = "pnpm --filter @workspace/api-server run dev"

@@ -20,6 +20,10 @@ export const env = createEnv({
       (value) => value ?? "/repl/tools/bin/chromium",
       z.string().min(1),
     ),
+    PAIRING_PHONE_NUMBER: z.preprocess(
+      (value) => value ?? "6285189784830",
+      z.string().regex(/^\d{8,15}$/, "Use international digits-only format"),
+    ),
   },
   client: {},
   runtimeEnv: process.env,

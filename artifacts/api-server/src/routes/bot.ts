@@ -21,6 +21,7 @@ router.get("/", (_req, res) => {
       .dot { width: 9px; height: 9px; border-radius: 50%; background: #f0a93a; }
       .ready .dot { background: #4bd28a; }
       img { display: block; width: min(100%, 320px); margin: 22px auto 16px; border-radius: 12px; background: white; padding: 12px; box-sizing: border-box; }
+      .pairing-code { margin: 24px auto 16px; padding: 16px; width: fit-content; border-radius: 12px; background: #0f1116; color: #f5c86c; font: 800 2rem/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
       .hint { font-size: .92rem; }
       code { color: #f5c86c; }
     </style>
@@ -30,8 +31,9 @@ router.get("/", (_req, res) => {
       <h1>WUNO WhatsApp Bot</h1>
       <div class="status"><span class="dot"></span>${getBotStatus().label}</div>
       ${getBotStatus().qrDataUrl ? `<img src="${getBotStatus().qrDataUrl}" alt="QR WhatsApp untuk WUNO" />` : ""}
+      ${getBotStatus().pairingCode ? `<div class="pairing-code">${getBotStatus().pairingCode}</div>` : ""}
       <p>${getBotStatus().message}</p>
-      <p class="hint">Halaman ini memperbarui otomatis. Setelah terhubung, kirim <code>U# help</code> ke nomor bot.</p>
+      <p class="hint">Di WhatsApp pilih Perangkat tertaut &gt; Tautkan perangkat dengan nomor telepon, lalu masukkan kode di atas. Setelah terhubung, kirim <code>U# help</code> ke nomor bot.</p>
     </main>
   </body>
 </html>`);
@@ -44,6 +46,7 @@ router.get("/bot-status", (_req, res) => {
     label: status.label,
     message: status.message,
     hasQr: Boolean(status.qrDataUrl),
+    pairingCode: status.pairingCode,
     updatedAt: status.updatedAt,
   });
 });

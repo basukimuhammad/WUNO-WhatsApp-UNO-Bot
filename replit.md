@@ -26,7 +26,7 @@ Bot WhatsApp untuk bermain UNO yang menampilkan QR pairing dan status koneksi me
 
 - `artifacts/api-server/src/wuno` — WUNO source adapted from the upstream repository
 - `artifacts/api-server/prisma/schema.prisma` — local WUNO SQLite schema
-- `artifacts/api-server/src/routes/bot.ts` — pairing/status page and JSON status endpoint
+- `artifacts/api-server/src/routes/bot.ts` — pairing-code/status page and JSON status endpoint
 - `artifacts/api-server/wuno-assets` — UNO card image assets
 
 ## Architecture decisions
@@ -46,7 +46,7 @@ Users scan the live QR page with a WhatsApp account, then play UNO through bot c
 ## Gotchas
 
 - Use a dedicated WhatsApp number; the upstream project warns that WhatsApp may block automation accounts.
-- Open `/api` to scan the QR. The status endpoint is `/api/bot-status`.
+- Open `/api` to receive the WhatsApp pairing code. The status endpoint is `/api/bot-status`.
 - The bot stores player phone numbers and usernames for game state, so the operator is responsible for deletion requests and privacy.
 
 ## Pointers

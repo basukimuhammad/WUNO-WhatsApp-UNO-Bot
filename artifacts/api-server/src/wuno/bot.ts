@@ -30,6 +30,11 @@ export default class Bot {
   constructor(clientId: string) {
     this.waClient = new Client({
       authStrategy: new LocalAuth({ clientId }),
+      pairWithPhoneNumber: {
+        phoneNumber: env.PAIRING_PHONE_NUMBER,
+        showNotification: true,
+        intervalMs: 180000,
+      },
       puppeteer: {
         executablePath: env.CHROME_PATH,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -66,6 +71,16 @@ export default class Bot {
         "qr",
         "Buka QR ini, lalu di WhatsApp pilih Setelan > Perangkat tertaut > Tautkan perangkat.",
         dataUrl,
+        null,
+      );
+    });
+    this.waClient.on("code", (code) => {
+      this.logger.info(`[BOT] Kode pairing WhatsApp: ${code}`);
+      updateBotStatus(
+        "pairing_code",
+        "Masukkan kode ini di WhatsApp pada perangkat yang ingin ditautkan. Kode diperbarui berkala.",
+        null,
+        code,
       );
     });
     this.waClient.on("ready", () => {
@@ -73,6 +88,7 @@ export default class Bot {
       updateBotStatus(
         "ready",
         `Bot sudah terhubung. Prefix perintah: ${env.PREFIX}`,
+        null,
         null,
       );
       this.waClient.setStatus(
@@ -90,6 +106,7 @@ export default class Bot {
           "authenticated",
           "WhatsApp berhasil diautentikasi. Menunggu bot siap digunakan.",
           null,
+          null,
         );
       })(),
     );
@@ -102,11 +119,12 @@ export default class Bot {
         "disconnected",
         `WhatsApp terputus (${reason}). Restart layanan untuk menautkan ulang.`,
         null,
+        null,
       );
     });
     this.waClient.on("auth_failure", (message) => {
       this.logger.error(`[BOT] Autentikasi gagal: ${message}`);
-      updateBotStatus("auth_failure", message, null);
+      updateBotStatus("auth_failure", message, null, null);
     });
 
     this.queue.start();
@@ -144,6 +162,7 @@ export default class Bot {
       updateBotStatus(
         "error",
         "Bot gagal menyala. Periksa log layanan untuk detail error.",
+        null,
         null,
       );
     }
