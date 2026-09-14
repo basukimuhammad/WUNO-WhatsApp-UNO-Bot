@@ -255,7 +255,11 @@ export class Chat {
    * Is current chatter sending message via DM chat
    */
   get isDMChat() {
-    return this.message.from.endsWith("@c.us");
+    // WhatsApp now uses @lid for some direct chats. Groups still use @g.us.
+    return (
+      this.message.from.endsWith("@c.us") ||
+      this.message.from.endsWith("@lid")
+    );
   }
 
   /**
