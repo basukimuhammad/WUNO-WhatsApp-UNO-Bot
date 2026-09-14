@@ -1,0 +1,1 @@
+- [WUNO runtime constraints](wuno-runtime.md) — bundled controller discovery and service-level environment variables are required for stable startup.

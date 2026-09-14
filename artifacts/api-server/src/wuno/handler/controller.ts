@@ -1,0 +1,42 @@
+import ban from "../controller/ban";
+import cards from "../controller/cards";
+import creategame from "../controller/creategame";
+import draw from "../controller/draw";
+import endgame from "../controller/endgame";
+import infogame from "../controller/infogame";
+import joingame from "../controller/joingame";
+import kick from "../controller/kick";
+import leaderboard from "../controller/leaderboard";
+import leavegame from "../controller/leavegame";
+import play from "../controller/play";
+import say from "../controller/say";
+import startgame from "../controller/startgame";
+
+const controllers = {
+  ban,
+  cards,
+  creategame,
+  draw,
+  endgame,
+  infogame,
+  joingame,
+  kick,
+  leaderboard,
+  leavegame,
+  play,
+  say,
+  startgame,
+};
+
+/**
+ * Lists of all controller name
+ */
+export const controllerName = Object.keys(controllers);
+
+/**
+ * Function that call all of the controller from controller directory
+ * @returns List of all controllers object
+ */
+export async function getController() {
+  return controllers;
+}
