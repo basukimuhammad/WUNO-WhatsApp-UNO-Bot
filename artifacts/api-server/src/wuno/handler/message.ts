@@ -109,6 +109,10 @@ export const messageHandler = async (
       case "ban":
         emitter.emit("ban", chat);
         break;
+      case "ub":
+      case "unban":
+        emitter.emit("unban", chat);
+        break;
       case "uno":
         emitter.emit("uno", chat);
         break;
