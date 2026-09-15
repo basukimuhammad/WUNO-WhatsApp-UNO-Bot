@@ -1,3 +1,49 @@
-2026/09/15-06:48:40.457 8cd Reusing MANIFEST /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/09/15-06:48:40.457 8cd Recovering log #411
-2026/09/15-06:48:40.486 8cd Reusing old log /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000411.log 
+2026/09/15-06:52:30.867 ad0 Reusing MANIFEST /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/09/15-06:52:30.868 ad0 Recovering log #411
+2026/09/15-06:52:30.896 ad0 Reusing old log /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000411.log 
+2026/09/15-06:52:34.981 ad0 Level-0 table #423: started
+2026/09/15-06:52:35.151 ad0 Level-0 table #423: 1091835 bytes OK
+2026/09/15-06:52:35.175 ad0 Delete type=0 #411
+2026/09/15-06:52:35.437 ad5 Compacting 1@1 + 8@2 files
+2026/09/15-06:52:35.520 ad5 Generated table #424@1: 79461 keys, 2222847 bytes
+2026/09/15-06:52:35.629 ad5 Generated table #425@1: 58987 keys, 2629845 bytes
+2026/09/15-06:52:35.718 ad5 Generated table #426@1: 14314 keys, 2734326 bytes
+2026/09/15-06:52:35.754 ad5 Generated table #427@1: 1280 keys, 2133466 bytes
+2026/09/15-06:52:35.796 ad5 Generated table #428@1: 705 keys, 2121943 bytes
+2026/09/15-06:52:35.829 ad5 Generated table #429@1: 549 keys, 2121576 bytes
+2026/09/15-06:52:35.886 ad5 Generated table #430@1: 17908 keys, 2184753 bytes
+2026/09/15-06:52:35.919 ad5 Generated table #431@1: 18786 keys, 1354944 bytes
+2026/09/15-06:52:35.919 ad5 Compacted 1@1 + 8@2 files => 17503700 bytes
+2026/09/15-06:52:35.940 ad5 compacted to: files[ 0 0 8 0 0 0 0 ]
+2026/09/15-06:52:35.947 ad5 Delete type=2 #413
+2026/09/15-06:52:35.947 ad5 Delete type=2 #414
+2026/09/15-06:52:35.947 ad5 Delete type=2 #415
+2026/09/15-06:52:35.947 ad5 Delete type=2 #416
+2026/09/15-06:52:35.947 ad5 Delete type=2 #417
+2026/09/15-06:52:35.947 ad5 Delete type=2 #418
+2026/09/15-06:52:35.947 ad5 Delete type=2 #419
+2026/09/15-06:52:35.947 ad5 Delete type=2 #420
+2026/09/15-06:52:35.947 ad5 Delete type=2 #423
+2026/09/15-07:21:21.795 ad0 Level-0 table #433: started
+2026/09/15-07:21:21.831 ad0 Level-0 table #433: 1320888 bytes OK
+2026/09/15-07:21:21.947 ad0 Delete type=0 #422
+2026/09/15-07:21:30.298 ace Compacting 1@1 + 8@2 files
+2026/09/15-07:21:30.375 ace Generated table #434@1: 78304 keys, 2222512 bytes
+2026/09/15-07:21:30.515 ace Generated table #435@1: 64038 keys, 2526944 bytes
+2026/09/15-07:21:30.685 ace Generated table #436@1: 14117 keys, 2863033 bytes
+2026/09/15-07:21:30.805 ace Generated table #437@1: 1516 keys, 2136940 bytes
+2026/09/15-07:21:30.908 ace Generated table #438@1: 684 keys, 2132714 bytes
+2026/09/15-07:21:31.049 ace Generated table #439@1: 587 keys, 2123636 bytes
+2026/09/15-07:21:31.141 ace Generated table #440@1: 15072 keys, 2173768 bytes
+2026/09/15-07:21:31.258 ace Generated table #441@1: 22259 keys, 1609906 bytes
+2026/09/15-07:21:31.258 ace Compacted 1@1 + 8@2 files => 17789453 bytes
+2026/09/15-07:21:31.276 ace compacted to: files[ 0 0 8 0 0 0 0 ]
+2026/09/15-07:21:31.276 ace Delete type=2 #424
+2026/09/15-07:21:31.277 ace Delete type=2 #425
+2026/09/15-07:21:31.277 ace Delete type=2 #426
+2026/09/15-07:21:31.277 ace Delete type=2 #427
+2026/09/15-07:21:31.277 ace Delete type=2 #428
+2026/09/15-07:21:31.277 ace Delete type=2 #429
+2026/09/15-07:21:31.277 ace Delete type=2 #430
+2026/09/15-07:21:31.277 ace Delete type=2 #431
+2026/09/15-07:21:31.277 ace Delete type=2 #433
