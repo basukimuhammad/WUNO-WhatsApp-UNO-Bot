@@ -144,6 +144,13 @@ export const replies = {
     "<nama sebagian atau nomor WhatsApp yang ingin di-ban>",
   ),
 
+  unban: replyBuilder(
+    "unban",
+    "Perintah ini digunakan oleh pembuat game untuk menghapus ban pemain berdasarkan nama atau nomor WhatsApp. Nama boleh ditulis sebagian.",
+    ["ub"],
+    '"Berhasil unban Muhammad basuki. Dia sekarang bisa join kembali ke permainan ini."',
+    "<nama sebagian atau nomor WhatsApp yang ingin di-unban>",
+  ),
   cards: replyBuilder(
     "cards",
     "Perintah ini digunakan untuk mengecek kartu yang ada pada saat kamu bermain.",
