@@ -318,6 +318,58 @@ export class Game {
     this.game = updatedGameState;
   }
 
+  /**
+   * Get all users currently banned from this game
+   */
+  async getAllBannedPlayerUserObject() {
+    const bannedPlayers = await prisma.bannedPlayer.findMany({
+      where: { gameId: this.game.id },
+      include: {
+        player: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    return bannedPlayers.map((bannedPlayer) => bannedPlayer.player.user);
+  }
+
+  /**
+   * Remove a user from this game's banned player list
+   * @param id User id to unban
+   * @returns True when a ban was removed
+   */
+  async removeUserFromBannedList(id: number) {
+    const userGameProperty = await prisma.userGameProperty.findUnique({
+      where: { userId: id },
+    });
+
+    if (!userGameProperty) return false;
+
+    const deleted = await prisma.bannedPlayer.deleteMany({
+      where: {
+        gameId: this.game.id,
+        playerId: userGameProperty.id,
+      },
+    });
+
+    const updatedGameState = await prisma.game.findUnique({
+      where: {
+        id: this.game.id,
+      },
+      include: {
+        allPlayers: true,
+        bannedPlayers: true,
+        cards: true,
+        playerOrders: true,
+      },
+    });
+
+    this.game = updatedGameState!;
+    return deleted.count > 0;
+  }
   async setUnoCalled(id: number, called: boolean) {
     await prisma.userGameProperty.update({
       where: { userId: id },
