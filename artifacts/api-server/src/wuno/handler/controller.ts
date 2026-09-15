@@ -1,4 +1,5 @@
 import ban from "../controller/ban";
+import unban from "../controller/unban";
 import cards from "../controller/cards";
 import creategame from "../controller/creategame";
 import draw from "../controller/draw";
@@ -15,6 +16,7 @@ import uno from "../controller/uno";
 
 const controllers = {
   ban,
+  unban,
   cards,
   creategame,
   draw,
