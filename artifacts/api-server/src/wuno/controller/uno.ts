@@ -1,6 +1,10 @@
 import { prisma } from "../handler/database";
+import type { Player, User } from "../handler/database";
 import { requiredJoinGameSession } from "../utils";
-import { normalizePhoneNumber } from "../utils";
+import {
+  findPlayersByIdentifier,
+  formatPlayerMatches,
+} from "../utils";
 
 export default requiredJoinGameSession(async ({ chat, game, card }) => {
   if (!game.state.PLAYING) {
@@ -25,7 +29,7 @@ export default requiredJoinGameSession(async ({ chat, game, card }) => {
     );
     await Promise.all([
       chat.replyToCurrentPerson(
-        "UNO tercatat. Kamu aman dari penalti dua kartu.",
+        "UNO tercatat. Kamu aman dari penalti satu kartu.",
       ),
       game.sendToSpecificPlayerList(
         `${chat.message.userName} mengatakan UNO dan aman dari penalti.`,
@@ -35,11 +39,11 @@ export default requiredJoinGameSession(async ({ chat, game, card }) => {
     return;
   }
 
-  const oneCardPlayers = [];
+  const oneCardPlayers: Array<{ player: Player; user: User }> = [];
   for (const player of game.players) {
     if (player.playerId === callerId) continue;
     if ((await game.getPlayerCardCount(player.playerId)) !== 1) continue;
-    if (await game.hasCalledUno(player.playerId)) continue;
+    if (!(await game.hasPendingUno(player.playerId))) continue;
     const user = await prisma.user.findUnique({
       where: { id: player.playerId },
     });
@@ -52,40 +56,51 @@ export default requiredJoinGameSession(async ({ chat, game, card }) => {
     );
   }
 
-  const requestedTarget = normalizePhoneNumber(chat.args.join(" "));
-  const target =
-    oneCardPlayers.length === 1
-      ? oneCardPlayers[0]
-      : oneCardPlayers.find(
-          ({ user }) =>
-            normalizePhoneNumber(user.phoneNumber) === requestedTarget,
-        );
+  const requestedTarget = chat.args.join(" ").trim();
+  let target: (typeof oneCardPlayers)[number] | undefined = oneCardPlayers[0];
 
-  if (!target) {
-    return await chat.replyToCurrentPerson(
-      `Ada ${oneCardPlayers.length} pemain yang lupa mengatakan UNO. Sertakan nomor target, contoh: U# uno 628123456789.`,
+  if (requestedTarget) {
+    const matches = findPlayersByIdentifier(
+      oneCardPlayers.map(({ user }) => user),
+      requestedTarget,
+    );
+
+    if (matches.length > 1) {
+      return await chat.replyToCurrentPerson(
+        `Nama "${requestedTarget}" cocok dengan beberapa pemain: ${formatPlayerMatches(matches)}. Sebutkan nama yang lebih lengkap atau nomor WhatsApp.`,
+      );
+    }
+
+    target = oneCardPlayers.find(
+      ({ user }) => user.id === matches[0]?.id,
     );
   }
 
-  const addedCards = await game.addCardsToPlayer(target.player.playerId, 2);
+  if (!target) {
+    return await chat.replyToCurrentPerson(
+      `Pemain "${requestedTarget}" tidak sedang berada dalam kesempatan UNO. Pemain terbaru yang tinggal satu kartu bisa dipanggil dengan U# uno.`,
+    );
+  }
+
+  const addedCards = await game.addCardsToPlayer(target.player.playerId, 1);
   const recipients = game.players.filter(
     (player) => player.playerId !== target.player.playerId,
   );
 
   await Promise.all([
     chat.replyToCurrentPerson(
-      `Benar! ${target.user.phoneNumber} terlambat mengatakan UNO dan mendapat 2 kartu penalti: ${addedCards
+        `Benar! ${target.user.username} terlambat mengatakan UNO dan mendapat 1 kartu penalti: ${addedCards
         .map((item) => `*${item}*`)
         .join(", ")}.`,
     ),
     chat.sendToOtherPerson(
       target.user.phoneNumber,
-      `Kamu terlambat mengatakan UNO. Kamu mendapat 2 kartu penalti: ${addedCards
+      `Kamu terlambat mengatakan UNO. Kamu mendapat 1 kartu penalti: ${addedCards
         .map((item) => `*${item}*`)
         .join(", ")}.`,
     ),
     game.sendToSpecificPlayerList(
-      `${target.user.phoneNumber} terlambat mengatakan UNO dan mendapat 2 kartu penalti.`,
+      `${target.user.username} terlambat mengatakan UNO dan mendapat 1 kartu penalti.`,
       recipients.filter((player) => player.playerId !== callerId),
     ),
   ]);

@@ -1,7 +1,7 @@
 import { prisma } from "../handler/database";
 import { createAllCardImage, requiredJoinGameSession } from "../utils";
 import { env } from "../env";
-import { normalizePhoneNumber } from "../utils";
+import { findPlayersByIdentifier, formatPlayerMatches } from "../utils";
 
 import type { allCard } from "../config/cards";
 
@@ -11,19 +11,21 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     return await chat.replyToCurrentPerson("Kamu bukan pembuat gamenya!");
 
   const message = chat.args.join(" ").trim();
-  const targetPhone = normalizePhoneNumber(message);
   const players = await game.getAllPlayerUserObject();
-
-  const player = players.find(
-    (player) =>
-      player && normalizePhoneNumber(player.phoneNumber) === targetPhone,
-  );
 
   if (message === "")
     return await chat.replyToCurrentPerson(
-      "Sebutkan nomor WhatsApp pemain yang ingin di-ban. Contoh: U# ban 628123456789",
+      "Sebutkan nama atau nomor WhatsApp pemain yang ingin di-ban. Nama boleh sebagian, contoh: U# ban uki atau U# ban 628123456789.",
     );
 
+  const matches = findPlayersByIdentifier(players, message);
+  if (matches.length > 1) {
+    return await chat.replyToCurrentPerson(
+      `Nama "${message}" cocok dengan beberapa pemain: ${formatPlayerMatches(matches)}. Sebutkan nama yang lebih lengkap atau nomor WhatsApp.`,
+    );
+  }
+
+  const player = matches[0];
   if (player) {
     const playerList = game.players
       .filter((gamePlayer) => gamePlayer.playerId !== player.id)
@@ -185,7 +187,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     }
   } else {
     await chat.replyToCurrentPerson(
-      `Tidak ada pemain dengan nomor "${message}" di permainan ini.`,
+      `Tidak ada pemain dengan nama atau nomor "${message}" di permainan ini.`,
     );
   }
 });

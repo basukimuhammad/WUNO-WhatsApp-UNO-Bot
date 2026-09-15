@@ -138,10 +138,10 @@ ${footer}`;
 export const replies = {
   ban: replyBuilder(
     "ban",
-    "Perintah ini digunakan untuk menge-ban pemain berdasarkan nomor WhatsApp, tanpa perlu mengetik nama.",
+    "Perintah ini digunakan untuk menge-ban pemain berdasarkan nama atau nomor WhatsApp. Nama boleh ditulis sebagian, misalnya `basuki` atau `uki` untuk pemain bernama `Muhammad basuki`.",
     ["b"],
-    '"Berhasil ban pemain 628123456789. Sekarang dia tidak ada dalam permainan."',
-    "<nomor WhatsApp yang ingin di-ban>",
+    '"Berhasil ban pemain Muhammad basuki. Sekarang dia tidak ada dalam permainan."',
+    "<nama sebagian atau nomor WhatsApp yang ingin di-ban>",
   ),
 
   cards: replyBuilder(
@@ -202,10 +202,10 @@ export const replies = {
 
   kick: replyBuilder(
     "kick",
-    "Perintah ini digunakan untuk kick pemain berdasarkan nomor WhatsApp, tanpa perlu mengetik nama.",
+    "Perintah ini digunakan untuk kick pemain berdasarkan nama atau nomor WhatsApp. Nama boleh ditulis sebagian, misalnya `basuki` atau `uki` untuk pemain bernama `Muhammad basuki`.",
     ["k"],
-    '"Berhasil mengeluarkan pemain 628123456789 dari permainan."',
-    "<nomor WhatsApp yang ingin di-kick>",
+    '"Berhasil mengeluarkan pemain Muhammad basuki dari permainan."',
+    "<nama sebagian atau nomor WhatsApp yang ingin di-kick>",
   ),
 
   leaderboard: replyBuilder(
@@ -261,8 +261,10 @@ export const replies = {
     "uno",
     `Gunakan saat kartu kamu tersisa satu.
 
-    Pemain yang lupa mengatakan UNO dapat dipanggil oleh pemain lain dan akan menerima dua kartu penalti.`,
+    Tidak ada peringatan otomatis. Jika pemain terbaru yang tinggal satu kartu lupa mengatakan UNO, pemain lain dapat mengetik \`U# uno\` untuk memberinya satu kartu penalti.
+
+    Jika kamu tinggal satu kartu, ketik \`U# uno\` untuk melindungi diri. Ketika pemain lain sudah menyusul tinggal satu kartu, kesempatan pemain sebelumnya berakhir.`,
     [],
-    '"UNO tercatat. Kamu aman dari penalti dua kartu."',
+    '"UNO tercatat. Kamu aman dari penalti satu kartu."',
   ),
 };

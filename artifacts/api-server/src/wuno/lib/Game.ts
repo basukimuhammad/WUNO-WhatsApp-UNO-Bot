@@ -80,7 +80,7 @@ export class Game {
       ...shuffledPlayers.map((playerId) =>
         prisma.userGameProperty.update({
           where: { userId: playerId },
-          data: { unoCalled: false },
+          data: { unoCalled: false, unoPendingAt: null },
         }),
       ),
     ]);
@@ -208,6 +208,7 @@ export class Game {
             isJoiningGame: false,
             gameID: null,
             unoCalled: false,
+            unoPendingAt: null,
           },
         }),
       ),
@@ -281,6 +282,8 @@ export class Game {
         data: {
           isJoiningGame: false,
           gameID: null,
+          unoCalled: false,
+          unoPendingAt: null,
         },
       }),
     ]);
@@ -318,7 +321,42 @@ export class Game {
   async setUnoCalled(id: number, called: boolean) {
     await prisma.userGameProperty.update({
       where: { userId: id },
-      data: { unoCalled: called },
+      data: {
+        unoCalled: called,
+        unoPendingAt: called ? null : undefined,
+      },
+    });
+  }
+
+  async markUnoRequired(id: number) {
+    await prisma.$transaction([
+      prisma.userGameProperty.updateMany({
+        where: {
+          gameID: this.game.gameID,
+          userId: { not: id },
+        },
+        data: {
+          unoCalled: false,
+          unoPendingAt: null,
+        },
+      }),
+      prisma.userGameProperty.update({
+        where: { userId: id },
+        data: {
+          unoCalled: false,
+          unoPendingAt: new Date(),
+        },
+      }),
+    ]);
+  }
+
+  async clearUnoState(id: number) {
+    await prisma.userGameProperty.update({
+      where: { userId: id },
+      data: {
+        unoCalled: false,
+        unoPendingAt: null,
+      },
     });
   }
 
@@ -328,6 +366,14 @@ export class Game {
       select: { unoCalled: true },
     });
     return property?.unoCalled ?? false;
+  }
+
+  async hasPendingUno(id: number) {
+    const property = await prisma.userGameProperty.findUnique({
+      where: { userId: id },
+      select: { unoPendingAt: true },
+    });
+    return property?.unoPendingAt !== null && property?.unoPendingAt !== undefined;
   }
 
   async getPlayerCardCount(id: number) {
@@ -355,7 +401,7 @@ export class Game {
         }),
       ),
     );
-    await this.setUnoCalled(id, false);
+    await this.clearUnoState(id);
     return addedCards;
   }
 

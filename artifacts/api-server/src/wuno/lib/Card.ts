@@ -155,6 +155,7 @@ export class Card {
       playerList &&
       playerList.length > 0
     ) {
+      await this.game.clearUnoState(this.chat.user!.id);
       await this.addNewCard(newCard);
       await this.game.updatePosition(nextPlayer.id);
 
@@ -212,19 +213,7 @@ export class Card {
   ) {
     if (this.cards!.length > 0) {
       if (this.cards.length === 1) {
-        await this.game.setUnoCalled(this.chat.user!.id, false);
-        const otherPlayers = this.game.players.filter(
-          (player) => player.playerId !== this.chat.user!.id,
-        );
-        await Promise.all([
-          this.chat.sendToCurrentPerson(
-            "Kamu sekarang hanya punya 1 kartu. Segera kirim U# uno agar tidak terkena penalti 2 kartu.",
-          ),
-          this.game.sendToSpecificPlayerList(
-            `${this.chat.message.userName} tinggal memiliki 1 kartu. Jika belum mengatakan UNO, kirim U# uno untuk memberi penalti 2 kartu.`,
-            otherPlayers,
-          ),
-        ]);
+        await this.game.markUnoRequired(this.chat.user!.id);
       }
 
       const [currentCardImage, frontCardsImage, backCardsImage] =

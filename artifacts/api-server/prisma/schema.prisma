@@ -24,6 +24,7 @@ model UserGameProperty {
   isJoiningGame Boolean @default(false)
   gameID        String?
   unoCalled     Boolean @default(false)
+  unoPendingAt  DateTime?
 
   userId Int  @unique
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)

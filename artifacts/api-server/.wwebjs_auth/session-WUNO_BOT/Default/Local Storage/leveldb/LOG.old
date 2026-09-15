@@ -1,6 +1,3 @@
-2026/09/15-06:23:06.095 3bd Reusing MANIFEST /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/Local Storage/leveldb/MANIFEST-000001
-2026/09/15-06:23:06.105 3bd Recovering log #8
-2026/09/15-06:23:06.106 3bd Reusing old log /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/Local Storage/leveldb/000008.log 
-2026/09/15-06:24:06.120 3bf Level-0 table #12: started
-2026/09/15-06:24:06.135 3bf Level-0 table #12: 12578 bytes OK
-2026/09/15-06:24:06.143 3bf Delete type=0 #8
+2026/09/15-06:24:32.324 4f8 Reusing MANIFEST /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/Local Storage/leveldb/MANIFEST-000001
+2026/09/15-06:24:32.342 4f8 Recovering log #11
+2026/09/15-06:24:32.343 4f8 Reusing old log /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/Local Storage/leveldb/000011.log 
