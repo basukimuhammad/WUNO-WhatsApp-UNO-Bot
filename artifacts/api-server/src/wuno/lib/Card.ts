@@ -905,6 +905,83 @@ Game otomatis telah dihentikan dan semua pemain sudah dikeluarkan dari sesi. Ter
   }
 
   /**
+   * Play multiple copies of the same number card in one turn.
+   * @param givenCard Number card to play
+   * @param count Number of copies to play
+   * @returns True when all cards were played successfully
+   */
+  async solveMultipleSameCard(givenCard: allCard, count: number) {
+    if (
+      count < 2 ||
+      this.cards.filter((playerCard) => playerCard === givenCard).length < count
+    ) {
+      return false;
+    }
+
+    if (compareTwoCard(this.game.currentCard as allCard, givenCard) !== "STACK") {
+      return false;
+    }
+
+    const nextPlayerId = this.game.getNextPosition();
+    const playerList = this.game.players!.filter(
+      (player) => player.playerId !== nextPlayerId!.playerId,
+    );
+
+    await this.game.updateCardAndPosition(
+      givenCard,
+      nextPlayerId!.playerId,
+    );
+
+    for (let index = 0; index < count; index += 1) {
+      await this.removeCardFromPlayer(givenCard);
+    }
+
+    const nextUserCard = await this.getCardByPlayerAndThisGame(nextPlayerId!);
+    const nextPlayer = await prisma.user.findUnique({
+      where: {
+        id: nextPlayerId?.playerId,
+      },
+    });
+
+    await this.checkIsWinner(
+      nextUserCard,
+      async ({ currentCardImage, frontCardsImage, backCardsImage }) => {
+        if (
+          nextPlayer &&
+          nextUserCard.length > 0 &&
+          playerList.length > 0
+        ) {
+          const playedCards = `${count} kartu *${givenCard}*`;
+
+          await Promise.all([
+            this.sendToCurrentPersonInGame(
+              `Berhasil mengeluarkan ${playedCards}, selanjutnya adalah giliran ${nextPlayer.username} untuk bermain`,
+              currentCardImage,
+              backCardsImage,
+              nextPlayer.username,
+            ),
+            this.sendToOtherPersonInGame(
+              `${this.chat.message.userName} telah mengeluarkan ${playedCards}. Sekarang giliran kamu untuk bermain`,
+              `Kartu kamu: ${nextUserCard.join(", ")}.`,
+              nextPlayer.phoneNumber,
+              currentCardImage,
+              frontCardsImage,
+            ),
+            this.sendToOtherPlayersWithoutCurrentPersonInGame(
+              `${this.chat.message.userName} telah mengeluarkan ${playedCards}, selanjutnya adalah giliran ${nextPlayer.username} untuk bermain`,
+              playerList,
+              currentCardImage,
+              backCardsImage,
+              nextPlayer.username,
+            ),
+          ]);
+        }
+      },
+    );
+
+    return true;
+  }
+  /**
    * Function for checking is player has a specific given card or not
    * @param card Valid given card
    * @returns Boolean that indicate is current player has a card or not
