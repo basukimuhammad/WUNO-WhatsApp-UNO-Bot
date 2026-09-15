@@ -127,6 +127,43 @@ export const cards: allCard[] = [
   "wilddraw4",
 ];
 
+/**
+ * Normalizes card commands so a player can type `U# g6` instead of
+ * `U# p green6`. Full card names remain supported.
+ */
+export const normalizeCardInput = (input: string): allCard | undefined => {
+  const compact = input.trim().toLowerCase().replace(/\s+/g, "");
+  if ((cards as string[]).includes(compact)) return compact as allCard;
+
+  const compactMatch = compact.match(
+    /^(r|g|b|y)([0-9]|skip|reverse|draw2|s|rev|r|d2)$/,
+  );
+  if (compactMatch) {
+    const color = {
+      r: "red",
+      g: "green",
+      b: "blue",
+      y: "yellow",
+    }[compactMatch[1] as "r" | "g" | "b" | "y"];
+    const suffix = {
+      s: "skip",
+      rev: "reverse",
+      r: "reverse",
+      d2: "draw2",
+    }[compactMatch[2]] ?? compactMatch[2];
+    return `${color}${suffix}` as allCard;
+  }
+
+  const wildMatch = compact.match(/^w(4)?(red|green|blue|yellow)$/);
+  if (wildMatch) {
+    return `${wildMatch[1] ? "wilddraw4" : "wild"}${wildMatch[2]}` as allCard;
+  }
+  if (compact === "w") return "wild";
+  if (compact === "w4") return "wilddraw4";
+
+  return undefined;
+};
+
 export const regexValidNormal = /^(red|green|blue|yellow)[0-9]$/;
 export const regexValidSpecial =
   /^(red|green|blue|yellow)(draw2|reverse|skip)$/;

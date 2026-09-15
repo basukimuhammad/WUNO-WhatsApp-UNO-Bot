@@ -1,6 +1,7 @@
 import { prisma } from "../handler/database";
 import { createAllCardImage, requiredJoinGameSession } from "../utils";
 import { env } from "../env";
+import { normalizePhoneNumber } from "../utils";
 
 import type { allCard } from "../config/cards";
 
@@ -10,13 +11,17 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     return await chat.replyToCurrentPerson("Kamu bukan pembuat gamenya!");
 
   const message = chat.args.join(" ").trim();
+  const targetPhone = normalizePhoneNumber(message);
   const players = await game.getAllPlayerUserObject();
 
-  const player = players.find((player) => player?.username === message);
+  const player = players.find(
+    (player) =>
+      player && normalizePhoneNumber(player.phoneNumber) === targetPhone,
+  );
 
   if (message === "")
     return await chat.replyToCurrentPerson(
-      "Sebutkan siapa yang ingin di kick!",
+      "Sebutkan nomor WhatsApp pemain yang ingin di-kick. Contoh: U# kick 628123456789",
     );
 
   if (player) {
@@ -165,7 +170,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
 
           // Send message to game creator
           await chat.replyToCurrentPerson(
-            `Berhasil mengeluarkan ${player.id} dari permainan.`,
+        `Berhasil mengeluarkan pemain ${player.phoneNumber} dari permainan.`,
           ),
 
           // Rest of the players
@@ -180,7 +185,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     }
   } else {
     await chat.replyToCurrentPerson(
-      `Tidak ada pemain yang bernama "${message}"`,
+      `Tidak ada pemain dengan nomor "${message}" di permainan ini.`,
     );
   }
 });

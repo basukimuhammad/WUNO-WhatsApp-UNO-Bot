@@ -8,6 +8,7 @@ import { emitHandler } from "./emitter";
 import { getController } from "./controller";
 
 import { botInfo } from "../config/messages";
+import { normalizeCardInput } from "../config/cards";
 
 /**
  * A "bone" for this bot handling incoming messages whatsoever
@@ -33,6 +34,13 @@ export const messageHandler = async (
       .toLowerCase();
 
     const chat = new Chat(client, message, logger, limitter, contact);
+    const implicitCard = normalizeCardInput(command);
+
+    if (implicitCard) {
+      chat.args = [implicitCard, ...chat.args];
+      emitter.emit("play", chat);
+      return;
+    }
 
     switch (command) {
       case "cg":
@@ -100,6 +108,9 @@ export const messageHandler = async (
       case "b":
       case "ban":
         emitter.emit("ban", chat);
+        break;
+      case "uno":
+        emitter.emit("uno", chat);
         break;
       case "h":
       case "help":

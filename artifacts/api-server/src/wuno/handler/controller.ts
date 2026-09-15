@@ -11,6 +11,7 @@ import leavegame from "../controller/leavegame";
 import play from "../controller/play";
 import say from "../controller/say";
 import startgame from "../controller/startgame";
+import uno from "../controller/uno";
 
 const controllers = {
   ban,
@@ -26,6 +27,7 @@ const controllers = {
   play,
   say,
   startgame,
+  uno,
 };
 
 /**

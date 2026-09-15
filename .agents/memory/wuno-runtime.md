@@ -8,3 +8,9 @@ The upstream WUNO code assumes source directories are present at runtime. When b
 **Why:** The first bundled runs failed because dynamic directory scanning looked for compiled controller folders and Prisma started without the service database URL.
 
 **How to apply:** Preserve the static controller registry and keep `DATABASE_URL` plus `CHROME_PATH` in the managed service environment when changing the bot runtime.
+
+WhatsApp Web can identify direct messages with `@lid` instead of `@c.us`; group messages continue to use `@g.us`.
+
+**Why:** The upstream DM guard rejected valid private commands after the account was linked through the phone-number pairing flow.
+
+**How to apply:** Treat `@lid` as a direct chat when checking whether a command may run in DM-only mode.

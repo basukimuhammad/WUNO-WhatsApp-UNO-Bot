@@ -77,6 +77,12 @@ export class Game {
           },
         }),
       ),
+      ...shuffledPlayers.map((playerId) =>
+        prisma.userGameProperty.update({
+          where: { userId: playerId },
+          data: { unoCalled: false },
+        }),
+      ),
     ]);
 
     const userCards = await prisma.$transaction(
@@ -162,6 +168,7 @@ export class Game {
    * Function for end current game
    */
   async endGame() {
+    const playerIds = this.players.map((player) => player.playerId);
     const [, updatedGameState] = await prisma.$transaction([
       prisma.userCard.deleteMany({
         where: {
@@ -192,14 +199,15 @@ export class Game {
           playerOrders: true,
         },
       }),
-      ...this.players.map((player) =>
+      ...playerIds.map((playerId) =>
         prisma.userGameProperty.update({
           where: {
-            userId: player.playerId,
+            userId: playerId,
           },
           data: {
             isJoiningGame: false,
             gameID: null,
+            unoCalled: false,
           },
         }),
       ),
@@ -305,6 +313,50 @@ export class Game {
     });
 
     this.game = updatedGameState;
+  }
+
+  async setUnoCalled(id: number, called: boolean) {
+    await prisma.userGameProperty.update({
+      where: { userId: id },
+      data: { unoCalled: called },
+    });
+  }
+
+  async hasCalledUno(id: number) {
+    const property = await prisma.userGameProperty.findUnique({
+      where: { userId: id },
+      select: { unoCalled: true },
+    });
+    return property?.unoCalled ?? false;
+  }
+
+  async getPlayerCardCount(id: number) {
+    const userCard = await prisma.userCard.findUnique({
+      where: { playerId: id },
+      include: { cards: true },
+    });
+    return userCard?.cards.length ?? 0;
+  }
+
+  async addCardsToPlayer(id: number, count: number) {
+    const userCard = await prisma.userCard.findUnique({
+      where: { playerId: id },
+    });
+    if (!userCard) return [];
+
+    const addedCards = Array.from({ length: count }, () =>
+      CardPicker.pickCardByGivenCard(this.game.currentCard as allCard),
+    );
+
+    await prisma.$transaction(
+      addedCards.map((cardName) =>
+        prisma.card.create({
+          data: { cardName, cardId: userCard.id },
+        }),
+      ),
+    );
+    await this.setUnoCalled(id, false);
+    return addedCards;
   }
 
   /**

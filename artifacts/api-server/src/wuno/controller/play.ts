@@ -7,6 +7,7 @@ import {
 } from "../config/cards";
 import { env } from "../env";
 import type { allCard } from "../config/cards";
+import { normalizeCardInput } from "../config/cards";
 
 const isValidWildOrPlus4 = (card: string) => {
   return (
@@ -26,11 +27,7 @@ const guessCardIsAlmostValidWildOrPlus4 = (card: string, cardLib: Card) => {
 };
 
 export default requiredJoinGameSession(async ({ chat, game, card }) => {
-  const choosenCard = chat.args
-    .join("")
-    .trim()
-    .replace(" ", "")
-    .toLocaleLowerCase();
+  const choosenCard = normalizeCardInput(chat.args.join("")) ?? "";
 
   if (game.isCurrentChatTurn) {
     if (chat.args.length < 1 || choosenCard === "") {

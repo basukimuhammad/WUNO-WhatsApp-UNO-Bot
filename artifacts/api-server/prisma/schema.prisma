@@ -23,6 +23,7 @@ model UserGameProperty {
   id            Int     @id @default(autoincrement())
   isJoiningGame Boolean @default(false)
   gameID        String?
+  unoCalled     Boolean @default(false)
 
   userId Int  @unique
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)

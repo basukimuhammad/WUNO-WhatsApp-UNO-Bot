@@ -138,10 +138,10 @@ ${footer}`;
 export const replies = {
   ban: replyBuilder(
     "ban",
-    "Perintah ini digunakan untuk menge-ban seseorang, semisal ada orang yang tidak dikenali masuk ke permainan.",
+    "Perintah ini digunakan untuk menge-ban pemain berdasarkan nomor WhatsApp, tanpa perlu mengetik nama.",
     ["b"],
-    '"Berhasil menge-ban E. Sekarang dia tidak ada dalam permainan."',
-    "<nama yang ingin di ban>",
+    '"Berhasil ban pemain 628123456789. Sekarang dia tidak ada dalam permainan."',
+    "<nomor WhatsApp yang ingin di-ban>",
   ),
 
   cards: replyBuilder(
@@ -202,10 +202,10 @@ export const replies = {
 
   kick: replyBuilder(
     "kick",
-    "Perintah ini digunakan untuk kick seseorang, semisal ada teman yang AFK pada saat permainan.",
+    "Perintah ini digunakan untuk kick pemain berdasarkan nomor WhatsApp, tanpa perlu mengetik nama.",
     ["k"],
-    '"Berhasil mengkick E. Sekarang dia tidak ada dalam permainan."',
-    "<nama yang ingin di kick>",
+    '"Berhasil mengeluarkan pemain 628123456789 dari permainan."',
+    "<nomor WhatsApp yang ingin di-kick>",
   ),
 
   leaderboard: replyBuilder(
@@ -230,7 +230,9 @@ export const replies = {
     "play",
     `Perintah ini digunakan untuk mengeluarkan kartu dalam sebuah permainan.
     
-  Jika kartu cocok akan ditaruh ke deck dan pemain selanjutnya akan mendapatkan giliran.`,
+    Jika kartu cocok akan ditaruh ke deck dan pemain selanjutnya akan mendapatkan giliran.
+    
+    Untuk lebih cepat, kamu juga bisa langsung mengetik U# g6, U# y6, U# rs, atau U# w4 tanpa menulis U#p.`,
     ["p"],
     '"Berhasil mengeluarkan kartu *red9*, selanjutnya adalah giliran B untuk bermain"',
     "<kartu>",
@@ -253,5 +255,14 @@ export const replies = {
   Perintah ini hanya bisa digunakan oleh orang yang membuat permainan.`,
     ["sg", "start"],
     '"Game berhasil dimulai! Sekarang giliran C untuk bermain"',
+  ),
+
+  uno: replyBuilder(
+    "uno",
+    `Gunakan saat kartu kamu tersisa satu.
+
+    Pemain yang lupa mengatakan UNO dapat dipanggil oleh pemain lain dan akan menerima dua kartu penalti.`,
+    [],
+    '"UNO tercatat. Kamu aman dari penalti dua kartu."',
   ),
 };
