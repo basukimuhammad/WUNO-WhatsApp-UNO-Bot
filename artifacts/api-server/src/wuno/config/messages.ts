@@ -239,7 +239,7 @@ export const replies = {
     
     Jika kartu cocok akan ditaruh ke deck dan pemain selanjutnya akan mendapatkan giliran.
     
-    Kamu juga bisa menaruh beberapa kartu angka yang sama dalam satu giliran, misalnya `U# play red5 red5 red5`. Semua kartu harus sama persis dan kartu aksi atau kartu wild tetap dimainkan satu per satu.
+    Kamu juga bisa menaruh beberapa kartu angka yang sama dalam satu giliran, misalnya \`U# play red5 red5 red5\`. Semua kartu harus sama persis dan kartu aksi atau kartu wild tetap dimainkan satu per satu.
     
     Untuk lebih cepat, kamu juga bisa langsung mengetik U# g6, U# y6, U# rs, atau U# w4 tanpa menulis U#p.`,
     ["p"],
