@@ -2,6 +2,7 @@ import { requiredJoinGameSession } from "../utils";
 import { Card } from "../lib";
 
 import {
+  regexValidNormal,
   regexValidWildColorOnly,
   regexValidWildColorPlus4Only,
 } from "../config/cards";
@@ -27,11 +28,44 @@ const guessCardIsAlmostValidWildOrPlus4 = (card: string, cardLib: Card) => {
 };
 
 export default requiredJoinGameSession(async ({ chat, game, card }) => {
-  const choosenCard = normalizeCardInput(chat.args.join("")) ?? "";
+  const joinedCard = normalizeCardInput(chat.args.join(""));
+  const requestedCards = chat.args.map((input) => normalizeCardInput(input));
+  const isBatchPlay = chat.args.length > 1 && !joinedCard;
+  const choosenCard = joinedCard ?? requestedCards[0] ?? "";
 
   if (game.isCurrentChatTurn) {
     if (chat.args.length < 1 || choosenCard === "") {
       await chat.replyToCurrentPerson("Diperlukan kartu yang ingin dimainkan!");
+    } else if (isBatchPlay) {
+      if (requestedCards.some((requestedCard) => !requestedCard)) {
+        await chat.replyToCurrentPerson(
+          "Salah satu input bukan kartu yang valid. Gunakan nama kartu lengkap atau singkat, misalnya red5 atau r5.",
+        );
+      } else if (requestedCards.some((requestedCard) => requestedCard !== requestedCards[0])) {
+        await chat.replyToCurrentPerson(
+          "Kalau ingin menaruh beberapa kartu sekaligus, semua kartunya harus sama persis.",
+        );
+      } else if (!regexValidNormal.test(choosenCard)) {
+        await chat.replyToCurrentPerson(
+          "Kartu ganda hanya bisa digunakan untuk kartu angka yang sama. Kartu aksi dan kartu wild tetap dimainkan satu per satu.",
+        );
+      } else if (
+        card.cards.filter((playerCard) => playerCard === choosenCard).length <
+        requestedCards.length
+      ) {
+        await chat.replyToCurrentPerson(
+          `Kamu tidak memiliki ${requestedCards.length} kartu ${choosenCard}.`,
+        );
+      } else if (
+        !(await card.solveMultipleSameCard(
+          choosenCard as allCard,
+          requestedCards.length,
+        ))
+      ) {
+        await chat.replyToCurrentPerson(
+          `Kartu *${choosenCard}* tidak valid jika disandingkan dengan kartu *${game.currentCard}*! Jika tidak memiliki kartu lagi, ambil dengan '${env.PREFIX}d' untuk mengambil kartu baru.`,
+        );
+      }
     } else if (guessCardIsAlmostValidWildOrPlus4(choosenCard, card)) {
       await chat.replyToCurrentPerson(
         `Kamu memiliki kartu ${choosenCard} tetapi belum ada warnanya.
