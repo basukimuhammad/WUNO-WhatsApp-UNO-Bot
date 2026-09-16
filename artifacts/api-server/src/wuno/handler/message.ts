@@ -91,6 +91,11 @@ export const messageHandler = async (
       case "say":
         emitter.emit("say", chat);
         break;
+        case "st":
+      case "sayto":
+        chat.targetOnly = true;
+        emitter.emit("say", chat);
+        break;
       case "c":
       case "cards":
         emitter.emit("cards", chat);
