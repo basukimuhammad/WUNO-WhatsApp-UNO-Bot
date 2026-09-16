@@ -1,7 +1,15 @@
 import { requiredJoinGameSession } from "../utils";
+import {
+  findPlayersByIdentifier,
+  formatPlayerMatches,
+} from "../utils/playerTarget";
 
 export default requiredJoinGameSession(async ({ chat, game }) => {
-  const message = chat.args.join(" ");
+  const targetQuery = chat.targetOnly
+    ? chat.args[0]?.replace(/^@/, "").trim()
+    : undefined;
+  const messageArgs = chat.targetOnly ? chat.args.slice(1) : chat.args;
+  const message = messageArgs.join(" ");
 
   if (!game) {
     return await chat.replyToCurrentPerson(
@@ -13,9 +21,46 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     );
   }
 
-  const playerList = game.players.filter(
+    let playerList = game.players.filter(
     (player) => player.playerId !== chat.user!.id,
   );
+  if (chat.targetOnly) {
+    if (!targetQuery) {
+      return await chat.replyToCurrentPerson(
+        "Gunakan format: U# sayto <nama atau nomor> <pesan>.",
+      );
+    }
+
+    const players = await game.getAllPlayerUserObject();
+    const matches = findPlayersByIdentifier(
+      players.filter((player) => player?.id !== chat.user!.id),
+      targetQuery,
+    );
+
+    if (matches.length > 1) {
+      return await chat.replyToCurrentPerson(
+        `Nama "${targetQuery}" cocok dengan beberapa pemain: ${formatPlayerMatches(matches)}. Sebutkan nama yang lebih lengkap atau nomor WhatsApp.`,
+      );
+    }
+
+    const target = matches[0];
+    if (!target) {
+      return await chat.replyToCurrentPerson(
+        `Tidak ada pemain dengan nama atau nomor "${targetQuery}" di game ini.`,
+      );
+    }
+
+    const targetPlayer = game.players.find(
+      (player) => player.playerId === target.id,
+    );
+    if (!targetPlayer) {
+      return await chat.replyToCurrentPerson(
+        "Pemain tersebut tidak sedang berada di game ini.",
+      );
+    }
+
+    playerList = [targetPlayer];
+  }
 
   // Media handler
   const { hasQuotedMessage, quotedMessage, quotedMessageMedia } =
