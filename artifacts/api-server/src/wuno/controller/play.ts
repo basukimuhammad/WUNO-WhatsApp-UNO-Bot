@@ -30,6 +30,12 @@ const guessCardIsAlmostValidWildOrPlus4 = (card: string, cardLib: Card) => {
 export default requiredJoinGameSession(async ({ chat, game, card }) => {
   const joinedCard = normalizeCardInput(chat.args.join(""));
   const requestedCards = chat.args.map((input) => normalizeCardInput(input));
+  const requestedCardNames = requestedCards.filter(
+    (requestedCard): requestedCard is allCard => Boolean(requestedCard),
+  );
+  const requestedNumbers = requestedCardNames.map((requestedCard) =>
+    requestedCard.match(/[0-9]$/)?.[0],
+  );
   const isBatchPlay = chat.args.length > 1 && !joinedCard;
   const choosenCard = joinedCard ?? requestedCards[0] ?? "";
 
