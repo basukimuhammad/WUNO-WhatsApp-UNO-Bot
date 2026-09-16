@@ -906,20 +906,36 @@ Game otomatis telah dihentikan dan semua pemain sudah dikeluarkan dari sesi. Ter
   }
 
   /**
-   * Play multiple copies of the same number card in one turn.
-   * @param givenCard Number card to play
-   * @param count Number of copies to play
+   * Play multiple number cards with the same number in one turn.
+   * @param givenCards Number cards to play, colors may differ
    * @returns True when all cards were played successfully
    */
-  async solveMultipleSameCard(givenCard: allCard, count: number) {
+  async solveMultipleSameNumberCards(givenCards: allCard[]) {
+    if (givenCards.length < 2) return false;
+
+    const number = givenCards[0].match(/[0-9]$/)?.[0];
     if (
-      count < 2 ||
-      this.cards.filter((playerCard) => playerCard === givenCard).length < count
+      !number ||
+      givenCards.some(
+        (givenCard) =>
+          !regexValidNormal.test(givenCard) ||
+          givenCard.match(/[0-9]$/)?.[0] !== number,
+      )
     ) {
       return false;
     }
 
-    if (compareTwoCard(this.game.currentCard as allCard, givenCard) !== "STACK") {
+    const hasMissingCard = givenCards.some(
+      (givenCard) =>
+        givenCards.filter((cardName) => cardName === givenCard).length >
+        this.cards.filter((playerCard) => playerCard === givenCard).length,
+    );
+    if (hasMissingCard) return false;
+
+    if (
+      compareTwoCard(this.game.currentCard as allCard, givenCards[0]) !==
+      "STACK"
+    ) {
       return false;
     }
 
@@ -929,11 +945,11 @@ Game otomatis telah dihentikan dan semua pemain sudah dikeluarkan dari sesi. Ter
     );
 
     await this.game.updateCardAndPosition(
-      givenCard,
+      givenCards[givenCards.length - 1],
       nextPlayerId!.playerId,
     );
 
-    for (let index = 0; index < count; index += 1) {
+    for (const givenCard of givenCards) {
       await this.removeCardFromPlayer(givenCard);
     }
 
@@ -947,12 +963,8 @@ Game otomatis telah dihentikan dan semua pemain sudah dikeluarkan dari sesi. Ter
     await this.checkIsWinner(
       nextUserCard,
       async ({ currentCardImage, frontCardsImage, backCardsImage }) => {
-        if (
-          nextPlayer &&
-          nextUserCard.length > 0 &&
-          playerList.length > 0
-        ) {
-          const playedCards = `${count} kartu *${givenCard}*`;
+        if (nextPlayer && nextUserCard.length > 0 && playerList.length > 0) {
+          const playedCards = `${givenCards.length} kartu dengan angka ${number} (${givenCards.join(", ")})`;
 
           await Promise.all([
             this.sendToCurrentPersonInGame(
