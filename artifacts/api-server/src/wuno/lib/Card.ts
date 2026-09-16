@@ -7,6 +7,7 @@ import {
   CardPicker,
   cards,
   compareTwoCard,
+  regexValidNormal,
   regexValidWildColorOnly,
   regexValidWildColorPlus4Only,
 } from "../config/cards";
