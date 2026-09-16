@@ -47,26 +47,31 @@ export default requiredJoinGameSession(async ({ chat, game, card }) => {
         await chat.replyToCurrentPerson(
           "Salah satu input bukan kartu yang valid. Gunakan nama kartu lengkap atau singkat, misalnya red5 atau r5.",
         );
-      } else if (requestedCards.some((requestedCard) => requestedCard !== requestedCards[0])) {
+      } else if (
+        requestedNumbers.some((number) => number !== requestedNumbers[0])
+      ) {
         await chat.replyToCurrentPerson(
-          "Kalau ingin menaruh beberapa kartu sekaligus, semua kartunya harus sama persis.",
+          "Kalau ingin menaruh beberapa kartu sekaligus, semua kartunya harus memiliki angka yang sama. Warnanya boleh berbeda.",
         );
       } else if (!regexValidNormal.test(choosenCard)) {
         await chat.replyToCurrentPerson(
-          "Kartu ganda hanya bisa digunakan untuk kartu angka yang sama. Kartu aksi dan kartu wild tetap dimainkan satu per satu.",
+          "Kartu ganda hanya bisa digunakan untuk kartu angka yang sama, meskipun warnanya berbeda. Kartu aksi dan kartu wild tetap dimainkan satu per satu.",
         );
       } else if (
-        card.cards.filter((playerCard) => playerCard === choosenCard).length <
-        requestedCards.length
+        requestedCardNames.some(
+          (requestedCard) =>
+            requestedCardNames.filter(
+              (cardName) => cardName === requestedCard,
+            ).length >
+            card.cards.filter((playerCard) => playerCard === requestedCard)
+              .length,
+        )
       ) {
         await chat.replyToCurrentPerson(
-          `Kamu tidak memiliki ${requestedCards.length} kartu ${choosenCard}.`,
+          "Kamu tidak memiliki semua kartu yang diminta dalam jumlah yang cukup.",
         );
       } else if (
-        !(await card.solveMultipleSameCard(
-          choosenCard as allCard,
-          requestedCards.length,
-        ))
+        !(await card.solveMultipleSameNumberCards(requestedCardNames))
       ) {
         await chat.replyToCurrentPerson(
           `Kartu *${choosenCard}* tidak valid jika disandingkan dengan kartu *${game.currentCard}*! Jika tidak memiliki kartu lagi, ambil dengan '${env.PREFIX}d' untuk mengambil kartu baru.`,
