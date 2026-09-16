@@ -28,6 +28,7 @@ const controllers = {
   leavegame,
   play,
   say,
+  sayto: say,
   startgame,
   uno,
 };
