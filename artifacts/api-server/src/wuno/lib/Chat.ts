@@ -82,6 +82,11 @@ export class Chat {
   gameProperty?: UserGameProperty;
 
   /**
+  * Whether the current command should be delivered to one targeted player
+   */
+  targetOnly = false;
+
+  /**
    * Args list from user command
    */
   args: string[];
