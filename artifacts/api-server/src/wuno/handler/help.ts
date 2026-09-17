@@ -3,6 +3,8 @@ import { getController } from "./controller";
 
 import { helpTemplate, replies } from "../config/messages";
 
+const inlineCommandNames = ["listban"];
+
 /**
  * Help command handler function
  * @param controller Array of controllers object
@@ -11,8 +13,7 @@ import { helpTemplate, replies } from "../config/messages";
 export const handleHelpCommand =
   (controller: Awaited<ReturnType<typeof getController>>) =>
   async (chat: Chat) => {
-    const commands = Object.keys(controller);
-
+    const commands = [...Object.keys(controller), ...inlineCommandNames];
     const choosenCommand: string = chat.args
       .join("")
       .trim()
