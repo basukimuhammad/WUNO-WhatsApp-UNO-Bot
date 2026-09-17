@@ -60,11 +60,23 @@ export default async function creategame(chat: Chat) {
         chat.user!.username
       }\n\nKode: ${newGame.gameID}`,
     );
+
     await chat.replyToCurrentPerson(`${env.PREFIX}j ${newGame.gameID}`);
-  } else {
-    await chat.replyToCurrentPerson(
-      `Kamu sudah masuk ke sesi game ${game.gameID}`,
-      }`,
-    );
+    return;
   }
+
+  const currentGame = await prisma.userGameProperty.findUnique({
+    where: {
+      id: chat.user!.id,
+    },
+    select: {
+      gameID: true,
+    },
+  });
+
+  await chat.replyToCurrentPerson(
+    currentGame?.gameID
+      ? `Kamu sudah masuk ke sesi game ${currentGame.gameID}.`
+      : "Kamu sudah masuk ke sebuah sesi game.",
+  );
 }
