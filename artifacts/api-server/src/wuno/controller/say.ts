@@ -5,11 +5,10 @@ import {
 } from "../utils/playerTarget";
 
 export default requiredJoinGameSession(async ({ chat, game }) => {
-  const targetQuery = chat.targetOnly
-    ? chat.args[0]?.replace(/^@/, "").trim()
-    : undefined;
-  const messageArgs = chat.targetOnly ? chat.args.slice(1) : chat.args;
-  const message = messageArgs.join(" ");
+  let playerList = game.players.filter(
+    (player) => player.playerId !== chat.user!.id,
+  );
+  let message = chat.args.join(" ");
 
   if (!game) {
     return await chat.replyToCurrentPerson(
@@ -21,37 +20,36 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     );
   }
 
-    let playerList = game.players.filter(
-    (player) => player.playerId !== chat.user!.id,
-  );
   if (chat.targetOnly) {
-    if (!targetQuery) {
+    if (chat.args.length === 0) {
       return await chat.replyToCurrentPerson(
         "Gunakan format: U# sayto <nama atau nomor> <pesan>.",
       );
     }
 
     const players = await game.getAllPlayerUserObject();
-    const matches = findPlayersByIdentifier(
+    const target = findPlayerTargetFromArgs(
       players.filter((player) => player?.id !== chat.user!.id),
-      targetQuery,
+      chat.args,
     );
 
-    if (matches.length > 1) {
+    if (target.matches.length > 1) {
       return await chat.replyToCurrentPerson(
-        `Nama "${targetQuery}" cocok dengan beberapa pemain: ${formatPlayerMatches(matches)}. Sebutkan nama yang lebih lengkap atau nomor WhatsApp.`,
+        `Nama "${target.identifier}" cocok dengan beberapa pemain: ${formatPlayerMatches(
+          target.matches,
+        )}. Sebutkan nama yang lebih lengkap atau nomor WhatsApp.`,
       );
     }
 
-    const target = matches[0];
-    if (!target) {
+    const targetPlayerUser = target.matches[0];
+    if (!targetPlayerUser) {
       return await chat.replyToCurrentPerson(
-        `Tidak ada pemain dengan nama atau nomor "${targetQuery}" di game ini.`,
+        `Tidak ada pemain dengan nama atau nomor "${target.identifier}" di game ini.`,
       );
     }
 
     const targetPlayer = game.players.find(
-      (player) => player.playerId === target.id,
+      (player) => player.playerId === targetPlayerUser.id,
     );
     if (!targetPlayer) {
       return await chat.replyToCurrentPerson(
@@ -60,6 +58,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     }
 
     playerList = [targetPlayer];
+    message = target.message;
   }
 
   // Media handler
@@ -126,7 +125,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
             : `${chat.message.userName}: ${message}`,
       },
       playerList,
-      quotedMessageMedia,
+      currentMedia,
     );
 
     await chat.reactToCurrentPerson("👍");
