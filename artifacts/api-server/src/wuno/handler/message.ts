@@ -6,11 +6,7 @@ import { env } from "../env";
 import { Chat } from "../lib/Chat";
 import { emitHandler } from "./emitter";
 import { getController } from "./controller";
-import {
-  findOrCreateUser,
-  isDMChat,
-  requiredJoinGameSession,
-} from "../utils";
+import { findOrCreateUser, isDMChat, requiredJoinGameSession } from "../utils";
 
 import { botInfo } from "../config/messages";
 import { normalizeCardInput } from "../config/cards";
