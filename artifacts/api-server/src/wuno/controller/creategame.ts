@@ -63,8 +63,7 @@ export default async function creategame(chat: Chat) {
     await chat.replyToCurrentPerson(`${env.PREFIX}j ${newGame.gameID}`);
   } else {
     await chat.replyToCurrentPerson(
-      `Kamu sudah masuk ke sesi game: ${
-        chat.isGroupChat ? "[REDACTED]" : chat.gameProperty?.gameID
+      `Kamu sudah masuk ke sesi game ${game.gameID}`,
       }`,
     );
   }
