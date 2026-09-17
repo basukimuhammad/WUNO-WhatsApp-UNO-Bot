@@ -6,6 +6,11 @@ import { env } from "../env";
 import { Chat } from "../lib/Chat";
 import { emitHandler } from "./emitter";
 import { getController } from "./controller";
+import {
+  findOrCreateUser,
+  isDMChat,
+  requiredJoinGameSession,
+} from "../utils";
 
 import { botInfo } from "../config/messages";
 import { normalizeCardInput } from "../config/cards";
@@ -24,7 +29,34 @@ export const messageHandler = async (
 ) => {
   const controller = await getController();
   const emitter = emitHandler(controller);
+  const listBanHandler = isDMChat(
+    findOrCreateUser(
+      requiredJoinGameSession(async ({ chat, game }) => {
+        if (!game.isGameCreator) {
+          await chat.replyToCurrentPerson("Kamu bukan pembuat gamenya!");
+          return;
+        }
 
+        const bannedPlayers = await game.getAllBannedPlayerUserObject();
+        if (bannedPlayers.length === 0) {
+          await chat.replyToCurrentPerson(
+            "Belum ada pemain yang di-ban di game ini.",
+          );
+          return;
+        }
+
+        await chat.replyToCurrentPerson(
+          `Daftar pemain yang di-ban:\n${bannedPlayers
+            .map(
+              (player, index) =>
+                `${index + 1}. ${player.username} (${player.phoneNumber})`,
+            )
+            .join("\n")}`,
+        );
+      }),
+    ),
+  );
+  
   return async (message: Message, contact: Contact) => {
     const command = message.body
       .slice(env.PREFIX.length)!
@@ -91,7 +123,7 @@ export const messageHandler = async (
       case "say":
         emitter.emit("say", chat);
         break;
-        case "st":
+      case "st":
       case "sayto":
         chat.targetOnly = true;
         emitter.emit("say", chat);
@@ -117,6 +149,10 @@ export const messageHandler = async (
       case "ub":
       case "unban":
         emitter.emit("unban", chat);
+        break;
+      case "listban":
+      case "lban":
+        await listBanHandler(chat);
         break;
       case "uno":
         emitter.emit("uno", chat);
