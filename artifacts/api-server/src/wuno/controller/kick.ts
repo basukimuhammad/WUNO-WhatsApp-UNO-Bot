@@ -172,7 +172,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
 
           // Send message to game creator
           await chat.replyToCurrentPerson(
-        `Berhasil mengeluarkan pemain ${player.phoneNumber} dari permainan.`,
+        `Berhasil mengeluarkan pemain ${player.username} dari permainan.`,
           ),
 
           // Rest of the players
