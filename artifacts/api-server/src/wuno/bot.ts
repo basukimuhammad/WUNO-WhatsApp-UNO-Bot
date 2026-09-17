@@ -1,4 +1,4 @@
-import { Client, LocalAuth } from "whatsapp-web.js";
+import { Client, LocalAuth, Contact } from "whatsapp-web.js";
 import qrcode from "qrcode-terminal";
 import QRCode from "qrcode";
 import PQueue from "p-queue";
@@ -24,17 +24,20 @@ export default class Bot {
     concurrency: 4,
     autoStart: false,
   });
+
   private messageLimitter = pLimit(8);
   private waClient: Client;
 
   constructor(clientId: string) {
     this.waClient = new Client({
       authStrategy: new LocalAuth({ clientId }),
+
       pairWithPhoneNumber: {
         phoneNumber: env.PAIRING_PHONE_NUMBER,
         showNotification: true,
         intervalMs: 180000,
       },
+
       puppeteer: {
         executablePath: env.CHROME_PATH,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -57,7 +60,11 @@ export default class Bot {
             target: "pino/file",
             level: "debug",
             options: {
-              destination: path.join(__dirname, "..", `${clientId}-bot.log`),
+              destination: path.join(
+                __dirname,
+                "..",
+                `${clientId}-bot.log`,
+              ),
             },
           },
         ],
@@ -66,7 +73,12 @@ export default class Bot {
 
     this.waClient.on("qr", async (qr) => {
       qrcode.generate(qr, { small: true });
-      const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+
+      const dataUrl = await QRCode.toDataURL(qr, {
+        margin: 1,
+        width: 320,
+      });
+
       updateBotStatus(
         "qr",
         "Buka QR ini, lalu di WhatsApp pilih Setelan > Perangkat tertaut > Tautkan perangkat.",
@@ -74,8 +86,10 @@ export default class Bot {
         null,
       );
     });
+
     this.waClient.on("code", (code) => {
       this.logger.info(`[BOT] Kode pairing WhatsApp: ${code}`);
+
       updateBotStatus(
         "pairing_code",
         "Masukkan kode ini di WhatsApp pada perangkat yang ingin ditautkan. Kode diperbarui berkala.",
@@ -83,14 +97,17 @@ export default class Bot {
         code,
       );
     });
+
     this.waClient.on("ready", () => {
       this.logger.info("[BOT] Siap digunakan");
+
       updateBotStatus(
         "ready",
         `Bot sudah terhubung. Prefix perintah: ${env.PREFIX}`,
         null,
         null,
       );
+
       this.waClient.setStatus(
         `Ketik "${
           env.PREFIX
@@ -99,9 +116,11 @@ export default class Bot {
         )}.`,
       );
     });
+
     this.waClient.on("authenticated", () =>
       (() => {
         this.logger.info("[BOT] Berhasil melakukan proses autentikasi");
+
         updateBotStatus(
           "authenticated",
           "WhatsApp berhasil diautentikasi. Menunggu bot siap digunakan.",
@@ -110,11 +129,16 @@ export default class Bot {
         );
       })(),
     );
+
     this.waClient.on("change_state", (state) =>
-      this.logger.info(`[BOT] State bot berubah, saat ini: ${state}`),
+      this.logger.info(
+        `[BOT] State bot berubah, saat ini: ${state}`,
+      ),
     );
+
     this.waClient.on("disconnected", (reason) => {
       this.logger.warn(`[BOT] WhatsApp terputus: ${reason}`);
+
       updateBotStatus(
         "disconnected",
         `WhatsApp terputus (${reason}). Restart layanan untuk menautkan ulang.`,
@@ -122,9 +146,16 @@ export default class Bot {
         null,
       );
     });
+
     this.waClient.on("auth_failure", (message) => {
       this.logger.error(`[BOT] Autentikasi gagal: ${message}`);
-      updateBotStatus("auth_failure", message, null, null);
+
+      updateBotStatus(
+        "auth_failure",
+        message,
+        null,
+        null,
+      );
     });
 
     this.queue.start();
@@ -143,22 +174,84 @@ export default class Bot {
     );
 
     this.waClient.on("message", async (message) => {
-      if (message.body.startsWith(env.PREFIX)) {
-        const contact = await message.getContact();
+      // Abaikan pesan yang bukan command
+      if (!message.body.startsWith(env.PREFIX)) {
+        return;
+      }
 
-        this.logger.info(`[Pesan] Ada pesan dari: ${contact.pushname}`);
-        this.queue.add(async () => await onMessageQueue(message, contact));
+      try {
+        let contact: Contact;
+
+        /*
+         * Pesan dari grup:
+         * message.author = orang yang sebenarnya mengirim pesan
+         * message.from   = ID grup
+         *
+         * Pesan dari DM:
+         * message.author biasanya tidak ada
+         * message.from   = orang yang mengirim
+         */
+        if (message.author) {
+          contact = await this.waClient.getContactById(
+            message.author,
+          );
+        } else {
+          contact = await message.getContact();
+        }
+
+        const senderId =
+          message.author || message.from;
+
+        const senderNumber = senderId.replace(
+          /@c\.us|@lid|@g\.us/g,
+          "",
+        );
+
+        const senderName =
+          contact.pushname || "Pemain";
+
+        this.logger.info(
+          `[Pesan] Ada pesan dari: ${senderName} (${senderId}) | Nomor: ${senderNumber}`,
+        );
+
+        this.queue.add(
+          async () =>
+            await onMessageQueue(
+              message,
+              contact,
+            ),
+        );
+      } catch (error) {
+        this.logger.error(
+          { error },
+          "[Pesan] Gagal memproses event pesan",
+        );
       }
     });
 
     try {
       await prisma.$connect();
-      this.logger.info("[DB] Berhasil terhubung dengan database");
-      this.logger.info("[BOT] Menyalakan bot");
-      updateBotStatus("starting", "Database siap. Menyalakan WhatsApp Web.");
+
+      this.logger.info(
+        "[DB] Berhasil terhubung dengan database",
+      );
+
+      this.logger.info(
+        "[BOT] Menyalakan bot",
+      );
+
+      updateBotStatus(
+        "starting",
+        "Database siap. Menyalakan WhatsApp Web.",
+      );
+
       await this.waClient.initialize();
     } catch (error) {
-      this.logger.error({ error }, "[INIT] Gagal menyalakan bot");
+      this.logger.error(
+        { error },
+        "[INIT] Gagal menyalakan bot",
+      );
+
       updateBotStatus(
         "error",
         "Bot gagal menyala. Periksa log layanan untuk detail error.",
