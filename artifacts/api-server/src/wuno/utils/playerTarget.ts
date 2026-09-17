@@ -34,8 +34,11 @@ export const findPlayersByIdentifier = (
   });
 };
 
+
 export const formatPlayerMatches = (players: User[]) =>
-  players.map((player) => `${player.username} (${player.phoneNumber})`).join(", ");
+  players
+    .map((player) => `${player.username} (${player.phoneNumber})`)
+    .join(", ");
 
 /**
  * Resolves a target at the beginning of a command such as:
