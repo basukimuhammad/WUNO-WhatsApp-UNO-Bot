@@ -1,6 +1,6 @@
 import { requiredJoinGameSession } from "../utils";
 import {
-  findPlayersByIdentifier,
+  findPlayerTargetFromArgs,
   formatPlayerMatches,
 } from "../utils/playerTarget";
 
