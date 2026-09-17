@@ -125,7 +125,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
             : `${chat.message.userName}: ${message}`,
       },
       playerList,
-      currentMedia,
+      quotedMessageMedia,
     );
 
     await chat.reactToCurrentPerson("👍");
@@ -173,7 +173,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
             : `${chat.message.userName}: ${message}`,
       },
       playerList,
-      quotedMessageMedia,
+      currentMedia,
     );
 
     await chat.reactToCurrentPerson("👍");
