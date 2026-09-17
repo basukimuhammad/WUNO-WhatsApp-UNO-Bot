@@ -257,6 +257,21 @@ export const replies = {
     "<pesan (wajib jika hanya mengirimkan text)>",
   ),
 
+  sayto: replyBuilder(
+    "sayto",
+    "Perintah ini digunakan untuk mengirim teks, GIF, gambar, atau stiker hanya ke satu pemain. Target boleh berupa sebagian nama atau nomor WhatsApp; nama yang terdiri dari beberapa kata juga bisa digunakan. Jika nama cocok dengan beberapa pemain, bot akan meminta nama yang lebih spesifik.",
+    ["st"],
+    '"USERNAME: pesan disini"',
+    "<nama/nomor> <pesan>",
+  ),
+
+  listban: replyBuilder(
+    "listban",
+    "Perintah ini digunakan oleh pembuat game untuk melihat pemain yang sudah di-ban, lengkap dengan nama dan nomor WhatsApp.",
+    ["lban"],
+    '"Muhammad basuki (628123456789)"',
+  ),
+
   startgame: replyBuilder(
     "startgame",
     `Perintah ini digunakan untuk memulai permainan yang belum berjalan.
