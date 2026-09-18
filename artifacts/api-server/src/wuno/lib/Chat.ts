@@ -205,6 +205,34 @@ export class Chat {
     return await this.contact.getProfilePicUrl();
   }
 
+  private async downloadMediaWithRetry(
+    message: Message,
+    source: string,
+  ): Promise<MessageMedia | null> {
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const media = await message.downloadMedia();
+        if (media) return media;
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          this.logger.warn(
+            { err: error, source, attempt },
+            "[MEDIA] Gagal mengunduh media setelah beberapa percobaan",
+          );
+        }
+      }
+
+      if (attempt < maxAttempts) {
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, attempt * 500),
+        );
+      }
+    }
+
+    return null;
+  }
   /**
    * Current chatter have quoted message that have media in it
    */
@@ -212,7 +240,22 @@ export class Chat {
     const hasQuotedMessage = this.incomingMessage.hasQuotedMsg;
 
     if (hasQuotedMessage) {
-      const quotedMessage = await this.incomingMessage.getQuotedMessage();
+      let quotedMessage: Message;
+      try {
+        quotedMessage = await this.incomingMessage.getQuotedMessage();
+      } catch (error) {
+        this.logger.warn(
+          { err: error },
+          "[MEDIA] Gagal membuka pesan yang dibalas; lanjutkan tanpa media quote",
+        );
+        return {
+          hasQuotedMessage,
+          quotedMessage: undefined,
+          quotedMessageMedia: null,
+          mediaDownloadError: false,
+          quoteLookupError: true,
+        };
+      }
 
       if (!quotedMessage.hasMedia) {
         return {
@@ -220,26 +263,21 @@ export class Chat {
           hasQuotedMessage,
           quotedMessageMedia: null,
           mediaDownloadError: false,
+          quoteLookupError: false,
         };
       }
 
-      try {
-        const quotedMessageMedia = await quotedMessage.downloadMedia();
-        return {
-          quotedMessage,
-          hasQuotedMessage,
-          quotedMessageMedia,
-          mediaDownloadError: !quotedMessageMedia,
-        };
-      } catch (error) {
-        this.logger.warn({ err: error }, "[MEDIA] Gagal mengunduh media dari pesan yang dibalas");
-        return {
-          quotedMessage,
-          hasQuotedMessage,
-          quotedMessageMedia: null,
-          mediaDownloadError: true,
-        };
-      }
+      const quotedMessageMedia = await this.downloadMediaWithRetry(
+        quotedMessage,
+        "quoted message",
+      );
+      return {
+        quotedMessage,
+        hasQuotedMessage,
+        quotedMessageMedia,
+        mediaDownloadError: !quotedMessageMedia,
+        quoteLookupError: false,
+      };
     }
 
     return {
@@ -247,9 +285,9 @@ export class Chat {
       quotedMessage: undefined,
       quotedMessageMedia: undefined,
       mediaDownloadError: false,
+      quoteLookupError: false,
     };
   }
-
   /**
    * Current chatter have message media in it
    */
@@ -258,23 +296,16 @@ export class Chat {
     const currentChat = this.incomingMessage;
 
     if (hasMedia) {
-      try {
-        const currentMedia = await this.incomingMessage.downloadMedia();
-        return {
-          hasMedia,
-          currentChat,
-          currentMedia,
-          mediaDownloadError: !currentMedia,
-        };
-      } catch (error) {
-        this.logger.warn({ err: error }, "[MEDIA] Gagal mengunduh media pesan");
-        return {
-          hasMedia,
-          currentChat,
-          currentMedia: null,
-          mediaDownloadError: true,
-        };
-      }
+      const currentMedia = await this.downloadMediaWithRetry(
+        this.incomingMessage,
+        "current message",
+      );
+      return {
+        hasMedia,
+        currentChat,
+        currentMedia,
+        mediaDownloadError: !currentMedia,
+      };
     }
 
     return {
@@ -284,7 +315,6 @@ export class Chat {
       mediaDownloadError: false,
     };
   }
-
   /**
    * User property setter
    * @param user An user document by phone number
