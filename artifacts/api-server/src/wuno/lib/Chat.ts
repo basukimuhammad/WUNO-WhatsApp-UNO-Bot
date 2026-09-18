@@ -213,17 +213,40 @@ export class Chat {
 
     if (hasQuotedMessage) {
       const quotedMessage = await this.incomingMessage.getQuotedMessage();
-      const quotedMessageMedia = await quotedMessage.downloadMedia();
 
-      return {
-        quotedMessage,
-        hasQuotedMessage,
-        quotedMessageMedia,
-      };
+      if (!quotedMessage.hasMedia) {
+        return {
+          quotedMessage,
+          hasQuotedMessage,
+          quotedMessageMedia: null,
+          mediaDownloadError: false,
+        };
+      }
+
+      try {
+        const quotedMessageMedia = await quotedMessage.downloadMedia();
+        return {
+          quotedMessage,
+          hasQuotedMessage,
+          quotedMessageMedia,
+          mediaDownloadError: !quotedMessageMedia,
+        };
+      } catch (error) {
+        this.logger.warn({ err: error }, "[MEDIA] Gagal mengunduh media dari pesan yang dibalas");
+        return {
+          quotedMessage,
+          hasQuotedMessage,
+          quotedMessageMedia: null,
+          mediaDownloadError: true,
+        };
+      }
     }
 
     return {
       hasQuotedMessage,
+      quotedMessage: undefined,
+      quotedMessageMedia: undefined,
+      mediaDownloadError: false,
     };
   }
 
@@ -235,16 +258,31 @@ export class Chat {
     const currentChat = this.incomingMessage;
 
     if (hasMedia) {
-      const currentMedia = await this.incomingMessage.downloadMedia();
-
-      return {
-        hasMedia,
-        currentChat,
-        currentMedia,
-      };
+      try {
+        const currentMedia = await this.incomingMessage.downloadMedia();
+        return {
+          hasMedia,
+          currentChat,
+          currentMedia,
+          mediaDownloadError: !currentMedia,
+        };
+      } catch (error) {
+        this.logger.warn({ err: error }, "[MEDIA] Gagal mengunduh media pesan");
+        return {
+          hasMedia,
+          currentChat,
+          currentMedia: null,
+          mediaDownloadError: true,
+        };
+      }
     }
 
-    return { hasMedia };
+    return {
+      hasMedia,
+      currentChat,
+      currentMedia: undefined,
+      mediaDownloadError: false,
+    };
   }
 
   /**

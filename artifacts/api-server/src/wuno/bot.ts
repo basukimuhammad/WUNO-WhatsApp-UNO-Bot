@@ -64,15 +64,26 @@ export default class Bot {
       },
     });
 
-    this.waClient.on("qr", async (qr) => {
+    this.waClient.on("qr", (qr) => {
       qrcode.generate(qr, { small: true });
-      const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
-      updateBotStatus(
-        "qr",
-        "Buka QR ini, lalu di WhatsApp pilih Setelan > Perangkat tertaut > Tautkan perangkat.",
-        dataUrl,
-        null,
-      );
+      void QRCode.toDataURL(qr, { margin: 1, width: 320 })
+        .then((dataUrl) => {
+          updateBotStatus(
+            "qr",
+            "Buka QR ini, lalu di WhatsApp pilih Setelan > Perangkat tertaut > Tautkan perangkat.",
+            dataUrl,
+            null,
+          );
+        })
+        .catch((error: unknown) => {
+          this.logger.error({ err: error }, "[BOT] Gagal membuat QR data URL");
+          updateBotStatus(
+            "error",
+            "QR WhatsApp gagal dibuat. Periksa log layanan untuk detail error.",
+            null,
+            null,
+          );
+        });
     });
     this.waClient.on("code", (code) => {
       this.logger.info(`[BOT] Kode pairing WhatsApp: ${code}`);
@@ -142,13 +153,25 @@ export default class Bot {
       this.messageLimitter,
     );
 
-    this.waClient.on("message", async (message) => {
-      if (message.body.startsWith(env.PREFIX)) {
-        const contact = await message.getContact();
-
-        this.logger.info(`[Pesan] Ada pesan dari: ${contact.pushname}`);
-        this.queue.add(async () => await onMessageQueue(message, contact));
+    this.waClient.on("message", (message) => {
+      if (typeof message.body !== "string" || !message.body.startsWith(env.PREFIX)) {
+        return;
       }
+
+      void (async () => {
+        try {
+          const contact = await message.getContact();
+          this.logger.info(`[Pesan] Ada pesan dari: ${contact.pushname}`);
+          await this.queue.add(() => onMessageQueue(message, contact));
+        } catch (error) {
+          this.logger.error({ err: error }, "[BOT] Gagal memproses pesan masuk");
+          try {
+            await message.reply("Terjadi kesalahan saat memproses pesan. Silakan coba lagi.");
+          } catch (replyError) {
+            this.logger.error({ err: replyError }, "[BOT] Gagal mengirim pesan error ke pengguna");
+          }
+        }
+      })();
     });
 
     try {

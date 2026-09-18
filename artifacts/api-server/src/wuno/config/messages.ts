@@ -251,7 +251,7 @@ export const replies = {
     "say",
     `Perintah ini digunakan untuk mengirim sesuatu dalam sebuah permainan.
     
-  Anda dapat mengirim gambar, GIF, dan stiker dengan keterangan. Untuk mengirim gambar dan stiker, berikan keterangan dan ikuti perintah yang sesuai. Jika ingin mengirim stiker, kirimkan stiker terlebih dahulu, kemudian balas dengan memberikan keterangan. Anda juga dapat menggunakan teknik balasan untuk gambar dan GIF. Selain itu, bisa mengirim teks biasa.`,
+  Untuk foto atau GIF, tulis perintah ini sebagai caption media: `${env.PREFIX}say` atau `${env.PREFIX}say <keterangan>`. Untuk stiker, kirim stikernya lalu balas dengan memberikan perintah `${env.PREFIX}say`; bot akan meneruskan stiker dan caption terpisah. Teknik balas/quote juga berlaku untuk foto, GIF, dan stiker. Selain itu, bisa mengirim teks biasa.`,
     ["s"],
     '"USERNAME: pesan disini"',
     "<pesan (wajib jika hanya mengirimkan text)>",

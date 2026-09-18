@@ -62,12 +62,18 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
   }
 
   // Media handler
-  const { hasQuotedMessage, quotedMessage, quotedMessageMedia } =
+  const { hasQuotedMessage, quotedMessage, quotedMessageMedia, mediaDownloadError: quotedMediaDownloadError } =
     await chat.hasQuotedMessageMedia();
+
+  if (quotedMediaDownloadError) {
+    return await chat.replyToCurrentPerson(
+      "Media yang dibalas tidak bisa diunduh. Minta pengirim mengirim ulang media tersebut.",
+    );
+  }
 
   if (hasQuotedMessage && quotedMessageMedia) {
     // If the quoted message is a gif
-    if (quotedMessage.isGif) {
+    if (quotedMessage.isGif || quotedMessageMedia.mimetype === "image/gif") {
       await game.sendToSpecificPlayerList(
         {
           sendVideoAsGif: true,
@@ -133,12 +139,18 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     return;
   }
 
-  const { hasMedia, currentChat, currentMedia } =
+  const { hasMedia, currentChat, currentMedia, mediaDownloadError: currentMediaDownloadError } =
     await chat.hasMediaInCurrentChat();
+
+  if (currentMediaDownloadError) {
+    return await chat.replyToCurrentPerson(
+      "Media tidak bisa diunduh. Minta pengirim mengirim ulang media tersebut.",
+    );
+  }
 
   if (hasMedia && currentMedia) {
     // If the quoted message is a gif
-    if (currentChat.isGif) {
+    if (currentChat.isGif || currentMedia.mimetype === "image/gif") {
       await game.sendToSpecificPlayerList(
         {
           sendVideoAsGif: true,
@@ -153,6 +165,28 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
 
       await chat.reactToCurrentPerson("👍");
 
+      return;
+    }
+
+    // It's a sticker sent directly with the command.
+    if (
+      currentChat.type === "sticker" ||
+      (currentMedia.mimetype === "image/webp" && currentChat.body.trim() === "")
+    ) {
+      await game.sendToSpecificPlayerList(
+        { sendMediaAsSticker: true },
+        playerList,
+        currentMedia,
+      );
+
+      await game.sendToSpecificPlayerList(
+        message === ""
+          ? `Sticker dari ${chat.message.userName}`
+          : `${chat.message.userName}: ${message}`,
+        playerList,
+      );
+
+      await chat.reactToCurrentPerson("👍");
       return;
     }
 
