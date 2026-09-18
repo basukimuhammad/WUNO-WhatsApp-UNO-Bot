@@ -62,7 +62,7 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
   }
 
   // Media handler
-  const { hasQuotedMessage, quotedMessage, quotedMessageMedia, mediaDownloadError: quotedMediaDownloadError } =
+  const { hasQuotedMessage, quotedMessage, quotedMessageMedia, mediaDownloadError: quotedMediaDownloadError, quoteLookupError: quotedMessageLookupError } =
     await chat.hasQuotedMessageMedia();
 
   if (quotedMediaDownloadError) {
@@ -214,6 +214,12 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
 
     return;
   }
+  if (quotedMessageLookupError) {
+    return await chat.replyToCurrentPerson(
+      "Pesan yang dibalas tidak bisa dibuka oleh WhatsApp. Kirim ulang media lalu gunakan perintah say pada pesan baru.",
+    );
+  }
+
   // End of media handler
 
   if (message === "") {
