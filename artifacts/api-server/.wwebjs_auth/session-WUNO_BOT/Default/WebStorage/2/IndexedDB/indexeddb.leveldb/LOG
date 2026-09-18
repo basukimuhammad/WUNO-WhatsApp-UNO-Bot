@@ -1,2 +1,2 @@
-2026/09/14-13:18:05.708 c72 Creating DB /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/WebStorage/2/IndexedDB/indexeddb.leveldb since it was missing.
-2026/09/14-13:18:05.717 c72 Reusing MANIFEST /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/WebStorage/2/IndexedDB/indexeddb.leveldb/MANIFEST-000001
+2026/09/18-06:13:54.562 3fd Creating DB /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/WebStorage/2/IndexedDB/indexeddb.leveldb since it was missing.
+2026/09/18-06:13:54.572 3fd Reusing MANIFEST /home/runner/workspace/artifacts/api-server/.wwebjs_auth/session-WUNO_BOT/Default/WebStorage/2/IndexedDB/indexeddb.leveldb/MANIFEST-000001

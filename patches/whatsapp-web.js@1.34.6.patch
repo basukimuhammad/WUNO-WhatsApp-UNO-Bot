@@ -1,0 +1,14 @@
+diff --git a/src/util/Injected/Utils.js b/src/util/Injected/Utils.js
+index 53cc3487940b8c7cba02a0b7cd0cfcaad5d32452..828036db13390ee942543213ec256651dd67dfa3 100644
+--- a/src/util/Injected/Utils.js
++++ b/src/util/Injected/Utils.js
+@@ -483,6 +483,9 @@ exports.LoadUtils = () => {
+             ...extraOptions,
+         };
+ 
++        // WhatsApp Web media can carry an internal __x_id.
++        delete message.__x_id;
++
+         // Bot's won't reply if canonicalUrl is set (linking)
+         if (botOptions) {
+             delete message.canonicalUrl;

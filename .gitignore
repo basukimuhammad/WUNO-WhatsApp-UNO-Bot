@@ -53,3 +53,6 @@ Thumbs.db
 **/*.db
 **/*.db-journal
 **/*.log
+artifacts/api-server/.wwebjs_auth/
+artifacts/api-server/.wwebjs_cache/
+*.log

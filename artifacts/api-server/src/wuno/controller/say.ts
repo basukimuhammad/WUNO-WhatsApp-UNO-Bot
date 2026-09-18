@@ -5,34 +5,72 @@ import {
 } from "../utils/playerTarget";
 
 export default requiredJoinGameSession(async ({ chat, game }) => {
-  let playerList = game.players.filter(
-    (player) => player.playerId !== chat.user!.id,
-  );
-  let message = chat.args.join(" ");
-
+  /**
+   * Pastikan game benar-benar tersedia sebelum mengakses game.players.
+   */
   if (!game) {
     return await chat.replyToCurrentPerson(
       "Sebuah kesalahan, game tidak ditemukan!",
     );
-  } else if (game.players!.length < 1) {
+  }
+
+  /**
+   * Pastikan ada pemain lain di dalam game.
+   */
+  if (game.players.length < 1) {
     return await chat.replyToCurrentPerson(
       "Tidak ada lawan bicara yang bisa diajak berkomunikasi.",
     );
   }
 
+  /**
+   * Default:
+   * Kirim ke semua pemain lain dalam game.
+   */
+  let playerList = game.players.filter(
+    (player) => player.playerId !== chat.user!.id,
+  );
+
+  /**
+   * Argumen setelah command.
+   *
+   * Contoh:
+   * U#say halo semuanya
+   * -> "halo semuanya"
+   *
+   * U#sayto Budi halo
+   * -> diproses lagi di blok targetOnly
+   */
+  let message = chat.args.join(" ");
+
+  /**
+   * ============================================================
+   * TARGET PLAYER
+   * ============================================================
+   *
+   * Digunakan oleh U#sayto.
+   *
+   * Contoh:
+   * U#sayto Budi halo
+   * U#sayto 628123456789 halo
+   */
   if (chat.targetOnly) {
     if (chat.args.length === 0) {
       return await chat.replyToCurrentPerson(
-        "Gunakan format: U# sayto <nama atau nomor> <pesan>.",
+        "Gunakan format: U#sayto <nama atau nomor> <pesan>.",
       );
     }
 
     const players = await game.getAllPlayerUserObject();
+
     const target = findPlayerTargetFromArgs(
       players.filter((player) => player?.id !== chat.user!.id),
       chat.args,
     );
 
+    /**
+     * Lebih dari satu pemain memiliki nama yang cocok.
+     */
     if (target.matches.length > 1) {
       return await chat.replyToCurrentPerson(
         `Nama "${target.identifier}" cocok dengan beberapa pemain: ${formatPlayerMatches(
@@ -42,38 +80,85 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     }
 
     const targetPlayerUser = target.matches[0];
+
+    /**
+     * Tidak menemukan target.
+     */
     if (!targetPlayerUser) {
       return await chat.replyToCurrentPerson(
         `Tidak ada pemain dengan nama atau nomor "${target.identifier}" di game ini.`,
       );
     }
 
+    /**
+     * Cari player tersebut di game yang sedang aktif.
+     */
     const targetPlayer = game.players.find(
       (player) => player.playerId === targetPlayerUser.id,
     );
+
     if (!targetPlayer) {
       return await chat.replyToCurrentPerson(
         "Pemain tersebut tidak sedang berada di game ini.",
       );
     }
 
+    /**
+     * Untuk sayto, hanya kirim ke target tersebut.
+     */
     playerList = [targetPlayer];
+
+    /**
+     * findPlayerTargetFromArgs() juga mengambil sisa argumen
+     * sebagai isi pesan.
+     */
     message = target.message;
   }
 
-  // Media handler
-  const { hasQuotedMessage, quotedMessage, quotedMessageMedia, mediaDownloadError: quotedMediaDownloadError, quoteLookupError: quotedMessageLookupError } =
-    await chat.hasQuotedMessageMedia();
+  /**
+   * ============================================================
+   * MEDIA DARI PESAN YANG DI-QUOTE / DIREPLY
+   * ============================================================
+   *
+   * Contoh:
+   * reply sebuah gambar
+   * U#say
+   *
+   * atau:
+   * reply sebuah sticker
+   * U#sayto Budi
+   */
+  const {
+    hasQuotedMessage,
+    quotedMessage,
+    quotedMessageMedia,
+    mediaDownloadError: quotedMediaDownloadError,
+    quoteLookupError: quotedMessageLookupError,
+  } = await chat.hasQuotedMessageMedia();
 
+  /**
+   * Media quote gagal di-download.
+   */
   if (quotedMediaDownloadError) {
     return await chat.replyToCurrentPerson(
       "Media yang dibalas tidak bisa diunduh. Minta pengirim mengirim ulang media tersebut.",
     );
   }
 
-  if (hasQuotedMessage && quotedMessageMedia) {
-    // If the quoted message is a gif
-    if (quotedMessage.isGif || quotedMessageMedia.mimetype === "image/gif") {
+  /**
+   * Kalau pesan yang dibalas memang memiliki media
+   * dan media berhasil diperoleh.
+   */
+  if (hasQuotedMessage && quotedMessageMedia && quotedMessage) {
+    /**
+     * ==========================================================
+     * GIF
+     * ==========================================================
+     */
+    if (
+      quotedMessage.isGif ||
+      quotedMessageMedia.mimetype === "image/gif"
+    ) {
       await game.sendToSpecificPlayerList(
         {
           sendVideoAsGif: true,
@@ -91,22 +176,23 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
       return;
     }
 
-    // Check if it's not an image
-    if (!quotedMessageMedia.mimetype.startsWith("image/")) {
-      await chat.replyToCurrentPerson(
-        "Pesan yang bisa dikutip hanya berupa gambar, gif, dan sticker!",
-      );
-
-      return;
-    }
-
-    // It's a sticker
+    /**
+     * ==========================================================
+     * STICKER
+     * ==========================================================
+     *
+     * Sticker WhatsApp umumnya berupa image/webp.
+     *
+     * Kita pertahankan pengecekan body kosong seperti kode kamu.
+     */
     if (
       quotedMessageMedia.mimetype === "image/webp" &&
       quotedMessage.body === ""
     ) {
       await game.sendToSpecificPlayerList(
-        { sendMediaAsSticker: true },
+        {
+          sendMediaAsSticker: true,
+        },
         playerList,
         quotedMessageMedia,
       );
@@ -123,6 +209,24 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
       return;
     }
 
+    /**
+     * ==========================================================
+     * HANYA IZINKAN IMAGE
+     * ==========================================================
+     */
+    if (!quotedMessageMedia.mimetype.startsWith("image/")) {
+      await chat.replyToCurrentPerson(
+        "Pesan yang bisa dikutip hanya berupa gambar, gif, dan sticker!",
+      );
+
+      return;
+    }
+
+    /**
+     * ==========================================================
+     * GAMBAR
+     * ==========================================================
+     */
     await game.sendToSpecificPlayerList(
       {
         caption:
@@ -139,18 +243,48 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
     return;
   }
 
-  const { hasMedia, currentChat, currentMedia, mediaDownloadError: currentMediaDownloadError } =
-    await chat.hasMediaInCurrentChat();
+  /**
+   * ============================================================
+   * MEDIA DARI PESAN SAAT INI
+   * ============================================================
+   *
+   * Contoh:
+   * U#say + attach gambar
+   * U#say + attach sticker
+   *
+   * Atau:
+   * U#sayto Budi + attach gambar
+   * U#sayto Budi + attach sticker
+   */
+  const {
+    hasMedia,
+    currentChat,
+    currentMedia,
+    mediaDownloadError: currentMediaDownloadError,
+  } = await chat.hasMediaInCurrentChat();
 
+  /**
+   * Media pesan saat ini gagal di-download.
+   */
   if (currentMediaDownloadError) {
     return await chat.replyToCurrentPerson(
       "Media tidak bisa diunduh. Minta pengirim mengirim ulang media tersebut.",
     );
   }
 
+  /**
+   * Kalau pesan saat ini memiliki media dan media berhasil diperoleh.
+   */
   if (hasMedia && currentMedia) {
-    // If the quoted message is a gif
-    if (currentChat.isGif || currentMedia.mimetype === "image/gif") {
+    /**
+     * ==========================================================
+     * GIF
+     * ==========================================================
+     */
+    if (
+      currentChat.isGif ||
+      currentMedia.mimetype === "image/gif"
+    ) {
       await game.sendToSpecificPlayerList(
         {
           sendVideoAsGif: true,
@@ -168,13 +302,26 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
       return;
     }
 
-    // It's a sticker sent directly with the command.
+    /**
+     * ==========================================================
+     * STICKER
+     * ==========================================================
+     *
+     * Sticker bisa dideteksi berdasarkan:
+     * - currentChat.type === "sticker"
+     * - mimetype image/webp + body kosong
+     */
     if (
       currentChat.type === "sticker" ||
-      (currentMedia.mimetype === "image/webp" && currentChat.body.trim() === "")
+      (
+        currentMedia.mimetype === "image/webp" &&
+        currentChat.body.trim() === ""
+      )
     ) {
       await game.sendToSpecificPlayerList(
-        { sendMediaAsSticker: true },
+        {
+          sendMediaAsSticker: true,
+        },
         playerList,
         currentMedia,
       );
@@ -187,10 +334,15 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
       );
 
       await chat.reactToCurrentPerson("👍");
+
       return;
     }
 
-    // Check if it's not an image
+    /**
+     * ==========================================================
+     * HANYA IZINKAN IMAGE
+     * ==========================================================
+     */
     if (!currentMedia.mimetype.startsWith("image/")) {
       await chat.replyToCurrentPerson(
         "Pesan yang bisa dikutip hanya berupa gambar, gif, dan sticker!",
@@ -199,6 +351,11 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
       return;
     }
 
+    /**
+     * ==========================================================
+     * GAMBAR
+     * ==========================================================
+     */
     await game.sendToSpecificPlayerList(
       {
         caption:
@@ -214,23 +371,44 @@ export default requiredJoinGameSession(async ({ chat, game }) => {
 
     return;
   }
+
+  /**
+   * ============================================================
+   * QUOTE LOOKUP ERROR
+   * ============================================================
+   *
+   * Ini diletakkan setelah pengecekan media current message.
+   * Jadi kalau pesan sekarang sendiri memiliki media,
+   * media tersebut tetap bisa diproses.
+   */
   if (quotedMessageLookupError) {
     return await chat.replyToCurrentPerson(
       "Pesan yang dibalas tidak bisa dibuka oleh WhatsApp. Kirim ulang media lalu gunakan perintah say pada pesan baru.",
     );
   }
 
-  // End of media handler
-
+  /**
+   * ============================================================
+   * TEXT MESSAGE
+   * ============================================================
+   */
   if (message === "") {
     await chat.replyToCurrentPerson("Pesan tidak boleh kosong!");
     return;
   }
 
+  /**
+   * ============================================================
+   * SEND TEXT
+   * ============================================================
+   */
   await game.sendToSpecificPlayerList(
     `${chat.message.userName}: ${message}`,
     playerList,
   );
 
+  /**
+   * React setelah berhasil mengirim.
+   */
   await chat.reactToCurrentPerson("👍");
 });
