@@ -45,7 +45,7 @@ export const messageHandler = async (
           `Daftar pemain yang di-ban:\n${bannedPlayers
             .map(
               (player, index) =>
-                `${index + 1}. ${player.username} (${player.phoneNumber})`,
+                `${index + 1}. ${player.username} (${player.phoneNumber.replace(/@c\.us$/i, "")})`,
             )
             .join("\n")}`,
         );
