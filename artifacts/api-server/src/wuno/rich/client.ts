@@ -1,4 +1,5 @@
 import makeWASocket, {
+  Browsers,
   DisconnectReason,
   useMultiFileAuthState,
 } from "@yudzxml/baileys";
@@ -6,7 +7,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import QRCode from "qrcode";
+
 import { env } from "../env";
+import { updateBotStatus } from "../status";
 
 let socket: ReturnType<typeof makeWASocket> | null = null;
 let starting: Promise<ReturnType<typeof makeWASocket> | null> | null = null;
@@ -30,15 +34,50 @@ export async function startRichClient() {
     const sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      browser: ["WUNO Rich", "Chrome", "1.0.0"],
+      browser: Browsers.ubuntu("Chrome"),
       markOnlineOnConnect: false,
+      connectTimeoutMs: 60000,
+      keepAliveIntervalMs: 25000,
     });
 
     sock.ev.on("creds.update", saveCreds);
 
+    let pairingRequested = false;
+
     sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
-        console.log("[WUNO-RICH] QR tersedia. Buka QR di log/status untuk menautkan perangkat.");
+        try {
+          const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+          updateBotStatus(
+            "qr",
+            "QR Rich HTML tersedia. Tautkan perangkat dari WhatsApp > Perangkat tertaut > Tautkan perangkat.",
+            dataUrl,
+            null,
+          );
+        } catch (error) {
+          console.error("[WUNO-RICH] Gagal membuat QR:", error);
+        }
+      }
+
+      if (connection === "connecting" && !state.creds.registered && !pairingRequested) {
+        pairingRequested = true;
+        setTimeout(async () => {
+          try {
+            const phone = cleanPhone(env.PAIRING_PHONE_NUMBER ?? "");
+            if (!phone || state.creds.registered) return;
+            const code = await sock.requestPairingCode(phone);
+            console.log("[WUNO-RICH] Kode pairing Rich HTML:", code);
+            updateBotStatus(
+              "pairing_code",
+              "Masukkan kode ini di WhatsApp > Perangkat tertaut > Tautkan dengan nomor telepon.",
+              null,
+              code,
+            );
+          } catch (error) {
+            console.error("[WUNO-RICH] Gagal membuat kode pairing:", error);
+            pairingRequested = false;
+          }
+        }, 1500);
       }
 
       if (connection === "open") {
@@ -49,6 +88,7 @@ export async function startRichClient() {
       if (connection === "close") {
         socket = null;
         const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
+        console.error(`[WUNO-RICH] Koneksi tertutup. statusCode=${statusCode ?? "unknown"}`, lastDisconnect?.error ?? "");
         if (statusCode !== DisconnectReason.loggedOut) {
           starting = null;
           setTimeout(() => void startRichClient(), 3000);
@@ -58,18 +98,6 @@ export async function startRichClient() {
         }
       }
     });
-
-    if (!state.creds.registered) {
-      const phone = cleanPhone(env.PAIRING_PHONE_NUMBER ?? "");
-      if (phone) {
-        try {
-          const code = await sock.requestPairingCode(phone);
-          console.log("[WUNO-RICH] Kode pairing Rich HTML:", code);
-        } catch (error) {
-          console.error("[WUNO-RICH] Gagal membuat kode pairing:", error);
-        }
-      }
-    }
 
     return sock;
   })();
