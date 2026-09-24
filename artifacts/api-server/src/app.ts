@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { startBot } from "./wuno";
+import { gameCenterHtml } from "./wuno/gameCenter";
 import { updateBotStatus } from "./wuno/status";
 
 const app: Express = express();
@@ -32,6 +33,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+app.get("/wuno/game", (_req, res) => {
+  res.type("html").send(gameCenterHtml);
+});
 
 void startBot().catch((error: unknown) => {
   logger.error({ err: error }, "[BOT] Gagal menyalakan bot");
