@@ -5,7 +5,7 @@ import creategame from "../controller/creategame";
 import draw from "../controller/draw";
 import endgame from "../controller/endgame";
 import infogame from "../controller/infogame";
-import game from "../controller/game";
+import game from "../controller/tetris";
 import joingame from "../controller/joingame";
 import kick from "../controller/kick";
 import leaderboard from "../controller/leaderboard";
