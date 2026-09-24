@@ -158,6 +158,20 @@ export const messageHandler = async (
       case "gamecenter":
         emitter.emit("game", chat);
         break;
+      case "tetris":
+        emitter.emit("tetris", chat);
+        break;
+      case "tictactoe":
+      case "ttt":
+        emitter.emit("tictactoe", chat);
+        break;
+      case "connect4":
+      case "c4":
+        emitter.emit("connect4", chat);
+        break;
+      case "spotify":
+        emitter.emit("spotify", chat);
+        break;
       case "h":
       case "help":
         emitter.emit("help", chat);
