@@ -1,35 +1,11 @@
-import { AIRich } from "@xbibzlibrary/whatsbibz";
 import type { Chat } from "../lib/Chat";
-import { startRichClient } from "../rich/client";
-import { WUNO_GAME_HTML } from "../rich/gameHtml";
+import { sendRichHtml } from "../rich/sendHtml";
+import { TETRIS_HTML } from "../rich/games";
 
 export default async function tetris(chat: Chat) {
-  try {
-    const sock = await startRichClient();
-
-    const rich = new AIRich(sock)
-      .setTitle("🎮 WUNO Game Center")
-      .addSection({
-        view_model: {
-          primitive: {
-            __typename: "GenAIaeacdsnwHtmlPrimitive",
-            payload: WUNO_GAME_HTML,
-            trusted_sources: [],
-          },
-          __typename: "GenAISingleLayoutViewModel",
-        },
-      });
-
-    await rich.send(chat.message.from, {
-      forwarded: true,
-      notification: false,
-      includesUnifiedResponse: true,
-      includesSubmessages: false,
-    });
-  } catch (error) {
-    chat.logger.error({ err: error }, "[RICH] Gagal membuka Game Center");
-    await chat.sendToCurrentPerson(
-      "🎮 Game Center belum bisa dibuka. Perangkat Rich HTML belum tersambung atau pairing belum selesai.",
-    );
+  try { await sendRichHtml(chat, TETRIS_HTML, "🧱 WUNO Tetris", "tetris"); }
+  catch (error) {
+    chat.logger.error({ err: error }, "[RICH] Gagal membuka Tetris");
+    await chat.sendToCurrentPerson("🧱 Tetris belum bisa dibuka. Coba lagi sebentar.");
   }
 }
