@@ -30,6 +30,7 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
+      "@roamhq/wrtc",
       "better-sqlite3",
       "sqlite3",
       "canvas",
