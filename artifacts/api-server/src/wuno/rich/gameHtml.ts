@@ -1,4 +1,4 @@
-export const WUNO_GAME_HTML = String.raw\`
+export const WUNO_GAME_HTML = String.raw`
 <!doctype html>
 <html lang="id">
 <head>
