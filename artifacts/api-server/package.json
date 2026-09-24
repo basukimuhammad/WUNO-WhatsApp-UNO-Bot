@@ -35,7 +35,8 @@
     "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#b0a4b6c6c10868fad4881fb484b97895ce898b5d",
     "zod": "^3.25.76",
     "qrcode": "^1.5.4",
-    "@xbibzlibrary/whatsbibz": "1.4.0"
+    "@xbibzlibrary/whatsbibz": "1.4.0",
+    "protobufjs": "^7.5.6"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
