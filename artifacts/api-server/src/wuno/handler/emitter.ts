@@ -33,6 +33,7 @@ export const emitHandler = (
   messageHandler.on("creategame", safeController("creategame", findOrCreateUser(controller.creategame)));
   messageHandler.on("joingame", safeController("joingame", findOrCreateUser(controller.joingame)));
   messageHandler.on("infogame", safeController("infogame", findOrCreateUser(controller.infogame)));
+  messageHandler.on("game", safeController("game", controller.game));
   messageHandler.on("startgame", safeController("startgame", isDMChat(findOrCreateUser(controller.startgame))));
   messageHandler.on("endgame", safeController("endgame", isDMChat(findOrCreateUser(controller.endgame))));
   messageHandler.on("leavegame", safeController("leavegame", isDMChat(findOrCreateUser(controller.leavegame))));
