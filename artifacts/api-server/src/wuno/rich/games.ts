@@ -4,7 +4,7 @@ const WS_URL="__WUNO_WS_URL__";let ws;const q=new URLSearchParams(location.searc
 function connect(){if(!WS_URL){status("Server game belum siap");return}ws=new WebSocket(WS_URL);ws.onopen=()=>{ws.send(JSON.stringify({type:"join",game,room:q.get("room"),player:q.get("player"),name:q.get("name")}));status("Terhubung • tunggu pemain lain")};ws.onmessage=e=>{try{onState(JSON.parse(e.data))}catch{}};ws.onclose=()=>status("Koneksi terputus. Buka game lagi untuk menyambung.")}function send(a){if(ws?.readyState===1)ws.send(JSON.stringify(a))}function status(s){document.getElementById("status").textContent=s}connect();
 ${script}</script></body></html>`;
 
-export const TTT_HTML = base("⭕ Tic-Tac-Toe • 2 Pemain", '<div id="board" class="board ttt"></div><div class="controls"><button onclick="send({type:location.reload()})">Reset</button></div>', `
+export const TTT_HTML = base("⭕ Tic-Tac-Toe • 2 Pemain", '<div id="board" class="board ttt"></div><div class="controls"><button onclick="location.reload()">Keluar / Buka lagi</button></div>', `
 let b=Array(9).fill(""),me="",turn="";
 function onState(s){if(s.game!=="tictactoe")return; b=s.board||b;me=s.me||me;turn=s.turn||turn;status(s.message||("Kamu: "+me+" • Giliran: "+turn));render()}
 function render(){let el=document.getElementById("board");el.innerHTML="";b.forEach((v,i)=>{let x=document.createElement("button");x.textContent=v;x.onclick=()=>send({type:"move",index:i});el.appendChild(x)})}
