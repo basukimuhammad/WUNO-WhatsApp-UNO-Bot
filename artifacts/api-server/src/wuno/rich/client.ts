@@ -18,10 +18,6 @@ let starting: Promise<ReturnType<typeof makeWASocket> | null> | null = null;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const authDir = path.resolve(here, "../../../.wuno-rich-auth");
 
-function cleanPhone(value: string) {
-  return value.replace(/\D/g, "");
-}
-
 export async function startRichClient() {
   if (socket) return socket;
   if (starting) return starting;
@@ -42,42 +38,29 @@ export async function startRichClient() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    let pairingRequested = false;
-
     sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
         try {
-          const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+          const dataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 360 });
           updateBotStatus(
             "qr",
-            "QR Rich HTML tersedia. Tautkan perangkat dari WhatsApp > Perangkat tertaut > Tautkan perangkat.",
+            "QR Rich HTML tersedia. Di WhatsApp utama buka Perangkat tertaut > Tautkan perangkat, lalu scan QR ini.",
             dataUrl,
             null,
           );
+          console.log("[WUNO-RICH] QR Rich HTML tersedia. Buka halaman /api/ untuk melihat QR.");
         } catch (error) {
           console.error("[WUNO-RICH] Gagal membuat QR:", error);
         }
       }
 
-      if (connection === "connecting" && !state.creds.registered && !pairingRequested) {
-        pairingRequested = true;
-        setTimeout(async () => {
-          try {
-            const phone = cleanPhone(env.PAIRING_PHONE_NUMBER ?? "");
-            if (!phone || state.creds.registered) return;
-            const code = await sock.requestPairingCode(phone);
-            console.log("[WUNO-RICH] Kode pairing Rich HTML:", code);
-            updateBotStatus(
-              "pairing_code",
-              "Masukkan kode ini di WhatsApp > Perangkat tertaut > Tautkan dengan nomor telepon.",
-              null,
-              code,
-            );
-          } catch (error) {
-            console.error("[WUNO-RICH] Gagal membuat kode pairing:", error);
-            pairingRequested = false;
-          }
-        }, 1500);
+      if (connection === "open") {
+        updateBotStatus(
+          "ready",
+          "Transport Rich HTML WhatsApp sudah tersambung.",
+          null,
+          null,
+        );
       }
 
       if (connection === "open") {
