@@ -153,6 +153,11 @@ export const messageHandler = async (
       case "uno":
         emitter.emit("uno", chat);
         break;
+      case "game":
+      case "games":
+      case "gamecenter":
+        emitter.emit("game", chat);
+        break;
       case "h":
       case "help":
         emitter.emit("help", chat);
