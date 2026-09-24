@@ -36,6 +36,8 @@ export async function startRichClient() {
 
     sock.ev.on("creds.update", saveCreds);
 
+    let pairingRequested = false;
+
     sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
         try {
