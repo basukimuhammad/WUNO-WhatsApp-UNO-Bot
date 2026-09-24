@@ -7,8 +7,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import QRCode from "qrcode";
-
 import { env } from "../env";
 import { updateBotStatus } from "../status";
 
@@ -30,7 +28,7 @@ export async function startRichClient() {
     const sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      browser: Browsers.ubuntu("Chrome"),
+      browser: Browsers.windows("Chrome"),
       markOnlineOnConnect: false,
       connectTimeoutMs: 60000,
       keepAliveIntervalMs: 25000,
@@ -61,6 +59,42 @@ export async function startRichClient() {
           null,
           null,
         );
+      }
+
+      if (
+        connection === "connecting" &&
+        !state.creds.registered &&
+        !pairingRequested
+      ) {
+        pairingRequested = true;
+
+        try {
+          const phone = (env.PAIRING_PHONE_NUMBER ?? "").replace(/\\D/g, "");
+
+          if (!phone) {
+            throw new Error("PAIRING_PHONE_NUMBER belum diatur.");
+          }
+
+          const code = await sock.requestPairingCode(phone);
+
+          console.log("[WUNO-RICH] Kode pairing Rich HTML:", code);
+
+          updateBotStatus(
+            "pairing_code",
+            "Masukkan kode ini di WhatsApp utama: Perangkat tertaut > Tautkan perangkat > Tautkan dengan nomor telepon.",
+            null,
+            code,
+          );
+        } catch (error) {
+          pairingRequested = false;
+          console.error("[WUNO-RICH] Gagal membuat kode pairing:", error);
+          updateBotStatus(
+            "error",
+            "Gagal membuat kode pairing Rich HTML. Periksa log lalu restart.",
+            null,
+            null,
+          );
+        }
       }
 
       if (connection === "open") {
