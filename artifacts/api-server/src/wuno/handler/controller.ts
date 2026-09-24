@@ -5,7 +5,11 @@ import creategame from "../controller/creategame";
 import draw from "../controller/draw";
 import endgame from "../controller/endgame";
 import infogame from "../controller/infogame";
-import game from "../controller/tetris";
+import game from "../controller/gameMenu";
+import tetris from "../controller/tetris";
+import tictactoe from "../controller/tictactoe";
+import connect4 from "../controller/connect4";
+import spotify from "../controller/spotify";
 import joingame from "../controller/joingame";
 import kick from "../controller/kick";
 import leaderboard from "../controller/leaderboard";
@@ -24,6 +28,10 @@ const controllers = {
   endgame,
   infogame,
   game,
+  tetris,
+  tictactoe,
+  connect4,
+  spotify,
   joingame,
   kick,
   leaderboard,
