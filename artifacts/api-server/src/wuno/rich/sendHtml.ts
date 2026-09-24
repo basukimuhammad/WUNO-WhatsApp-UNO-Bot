@@ -16,6 +16,7 @@ export async function sendRichHtml(
   chat: Chat,
   html: string,
   title: string,
+  game = "solo",
 ) {
   const sock = await startRichClient();
   const origin = getPublicOrigin();
@@ -27,7 +28,11 @@ export async function sendRichHtml(
   }
 
   const wsUrl = origin.replace(/^http/i, origin.startsWith("https") ? "wss" : "ws") + "/ws/games";
-  const preparedHtml = html.replaceAll("__WUNO_WS_URL__", wsUrl);
+  const room = encodeURIComponent(chat.message.from);
+  const player = encodeURIComponent(chat.message.userNumber);
+  const name = encodeURIComponent(chat.message.userName || chat.message.userNumber);
+  const gameUrl = `${wsUrl}?game=${encodeURIComponent(game)}&room=${room}&player=${player}&name=${name}`;
+  const preparedHtml = html.replaceAll("__WUNO_WS_URL__", gameUrl);
 
   const rich = new AIRich(sock)
     .setTitle(title)
