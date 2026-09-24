@@ -35,7 +35,8 @@
     "sharp": "^0.33.5",
     "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#b0a4b6c6c10868fad4881fb484b97895ce898b5d",
     "zod": "^3.25.76",
-    "@yudzxml/baileys": "^7.6.6"
+    "@yudzxml/baileys": "^7.6.6",
+    "protobufjs": "^7.5.6"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
