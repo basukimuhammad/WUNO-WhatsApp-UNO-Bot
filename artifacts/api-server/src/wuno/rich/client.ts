@@ -2,7 +2,6 @@ import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
 } from "@yudzxml/baileys";
-import { Boom } from "@hapi/boom";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,7 +48,7 @@ export async function startRichClient() {
 
       if (connection === "close") {
         socket = null;
-        const statusCode = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
+        const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
         if (statusCode !== DisconnectReason.loggedOut) {
           starting = null;
           setTimeout(() => void startRichClient(), 3000);
