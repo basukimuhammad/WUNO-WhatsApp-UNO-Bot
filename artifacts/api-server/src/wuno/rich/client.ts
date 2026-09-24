@@ -1,143 +1,113 @@
-import makeWASocket, {
-  Browsers,
-  DisconnectReason,
-  useMultiFileAuthState,
-} from "@yudzxml/baileys";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { createBibzWhats, type BibzWhatsClient } from "@xbibzlibrary/whatsbibz";
 import { env } from "../env";
 import { updateBotStatus } from "../status";
 
-let socket: ReturnType<typeof makeWASocket> | null = null;
-let starting: Promise<ReturnType<typeof makeWASocket> | null> | null = null;
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const authDir = path.resolve(here, "../../../.wuno-rich-auth");
-
-function normalizePhone(value: string) {
-  return value.replace(/\D/g, "");
-}
+let richClient: BibzWhatsClient | null = null;
+let starting: Promise<BibzWhatsClient> | null = null;
+let readyPromise: Promise<ReturnType<BibzWhatsClient["isConnected"]> extends boolean ? any : any> | null = null;
 
 export async function startRichClient() {
-  if (socket) return socket;
-  if (starting) return starting;
+  if (richClient?.isConnected() && richClient.sock) {
+    return richClient.sock;
+  }
+
+  if (starting) {
+    const client = await starting;
+    return await waitForReady(client);
+  }
+
+  const phone = (env.PAIRING_PHONE_NUMBER ?? "").replace(/\D/g, "");
+  if (!phone) {
+    const message = "PAIRING_PHONE_NUMBER belum diatur untuk Rich HTML.";
+    updateBotStatus("error", message, null, null);
+    throw new Error(message);
+  }
 
   starting = (async () => {
-    fs.mkdirSync(authDir, { recursive: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState(authDir);
-
-    const sock = makeWASocket({
-      auth: state,
-      browser: Browsers.windows("Chrome"),
-      markOnlineOnConnect: false,
-      connectTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000,
+    const client = await createBibzWhats({
+      phone,
+      authDir: ".wuno-rich-auth",
+      identity: "auto",
+      fetchLatestVersion: true,
+      readyOnEveryConnect: true,
+      maxReconnectAttempts: 10,
+      maxSessionWipes: 3,
+      pairingRequestDelayMs: 5000,
+      qrFallbackAfterMs: 0,
+      banner: false,
     });
 
-    sock.ev.on("creds.update", saveCreds);
+    richClient = client;
 
-    // Register listeners before requesting the pairing code so we don't miss
-    // the connection lifecycle events.
-    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
-      if (connection === "open") {
-        socket = sock;
-        console.log("[WUNO-RICH] Rich HTML WhatsApp tersambung.");
-        updateBotStatus(
-          "ready",
-          "Transport Rich HTML WhatsApp sudah tersambung.",
-          null,
-          null,
-        );
-      }
-
-      if (connection === "close") {
-        socket = null;
-
-        const statusCode = (
-          lastDisconnect?.error as
-            | { output?: { statusCode?: number } }
-            | undefined
-        )?.output?.statusCode;
-
-        console.error(
-          "[WUNO-RICH] Koneksi tertutup. statusCode=" +
-            (statusCode ?? "unknown"),
-          lastDisconnect?.error ?? "",
-        );
-
-        if (statusCode !== DisconnectReason.loggedOut) {
-          starting = null;
-          setTimeout(() => void startRichClient(), 5000);
-        } else {
-          starting = null;
-          updateBotStatus(
-            "disconnected",
-            "Perangkat Rich HTML ter-logout. Jalankan ulang pairing code.",
-            null,
-            null,
-          );
-        }
-      }
+    client.on("pairing-code", (code: string) => {
+      console.log("[WUNO-RICH] Kode pairing Rich HTML:", code);
+      updateBotStatus(
+        "pairing_code",
+        "Masukkan kode " +
+          code +
+          " di WhatsApp utama: Perangkat tertaut > Tautkan perangkat > Tautkan dengan nomor telepon.",
+        null,
+        code,
+      );
     });
 
-    // The fork documents requestPairingCode after makeWASocket(); wait a little
-    // for the initial WebSocket handshake to avoid a transient 428.
-    if (!state.creds.registered) {
-      const phone = normalizePhone(env.PAIRING_PHONE_NUMBER ?? "");
+    client.on("identity-changed", (info: { linkedDeviceName?: string; profileId?: string; reason?: string }) => {
+      console.log(
+        "[WUNO-RICH] Identitas perangkat:",
+        info.linkedDeviceName ?? info.profileId ?? "unknown",
+        info.reason ? "- " + info.reason : "",
+      );
+    });
 
-      if (!phone) {
-        updateBotStatus(
-          "error",
-          "PAIRING_PHONE_NUMBER belum diatur untuk Rich HTML.",
-          null,
-          null,
-        );
-        throw new Error("PAIRING_PHONE_NUMBER belum diatur.");
-      }
+    client.on("session-wiped", (reason: string) => {
+      console.warn("[WUNO-RICH] Sesi Rich diperbarui:", reason);
+    });
 
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+    client.on("give-up", (message: string) => {
+      console.error("[WUNO-RICH] Pairing menyerah:", message);
+      updateBotStatus("error", message, null, null);
+    });
 
-        const code = await sock.requestPairingCode(phone);
+    client.on("close", (info: { status?: number }) => {
+      console.warn("[WUNO-RICH] Rich HTML terputus:", info.status ?? "unknown");
+    });
 
-        console.log("[WUNO-RICH] Kode pairing Rich HTML:", code);
-
-        updateBotStatus(
-          "pairing_code",
-          "Masukkan kode " +
-            code +
-            " di WhatsApp utama melalui Perangkat tertaut > Tautkan perangkat > Tautkan dengan nomor telepon.",
-          null,
-          code,
-        );
-      } catch (error) {
-        console.error(
-          "[WUNO-RICH] Gagal membuat kode pairing Rich HTML:",
-          error,
-        );
-        updateBotStatus(
-          "error",
-          "Gagal membuat kode pairing Rich HTML. Restart lalu coba lagi.",
-          null,
-          null,
-        );
-        throw error;
-      }
-    }
-
-    return sock;
+    return client;
   })();
 
   try {
-    return await starting;
+    const client = await starting;
+    return await waitForReady(client);
   } catch (error) {
     starting = null;
     throw error;
   }
 }
 
+async function waitForReady(client: BibzWhatsClient) {
+  if (client.isConnected() && client.sock) {
+    updateBotStatus("ready", "Transport Rich HTML WhatsApp sudah tersambung.", null, null);
+    return client.sock;
+  }
+
+  if (!readyPromise) {
+    readyPromise = new Promise((resolve, reject) => {
+      const onReady = (sock: unknown) => {
+        updateBotStatus("ready", "Transport Rich HTML WhatsApp sudah tersambung.", null, null);
+        resolve(sock);
+      };
+      const onGiveUp = (message: string) => reject(new Error(message));
+
+      client.once("ready", onReady);
+      client.once("give-up", onGiveUp);
+    }).finally(() => {
+      readyPromise = null;
+    });
+  }
+
+  return await readyPromise;
+}
+
 export function getRichSocket() {
-  return socket;
+  return richClient?.sock ?? null;
 }
