@@ -34,6 +34,10 @@ export const emitHandler = (
   messageHandler.on("joingame", safeController("joingame", findOrCreateUser(controller.joingame)));
   messageHandler.on("infogame", safeController("infogame", findOrCreateUser(controller.infogame)));
   messageHandler.on("game", safeController("game", controller.game));
+  messageHandler.on("tetris", safeController("tetris", controller.tetris));
+  messageHandler.on("tictactoe", safeController("tictactoe", controller.tictactoe));
+  messageHandler.on("connect4", safeController("connect4", controller.connect4));
+  messageHandler.on("spotify", safeController("spotify", controller.spotify));
   messageHandler.on("startgame", safeController("startgame", isDMChat(findOrCreateUser(controller.startgame))));
   messageHandler.on("endgame", safeController("endgame", isDMChat(findOrCreateUser(controller.endgame))));
   messageHandler.on("leavegame", safeController("leavegame", isDMChat(findOrCreateUser(controller.leavegame))));
