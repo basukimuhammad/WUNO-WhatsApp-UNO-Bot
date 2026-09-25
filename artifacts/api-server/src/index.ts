@@ -1,5 +1,8 @@
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
+import yts from "yt-search";
+import ytdl from "ytdl-core";
+import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
 
@@ -13,6 +16,44 @@ const wss = new WebSocketServer({ server, path: "/ws/games" });
 
 type Player = { id: string; name: string; ws: WebSocket; mark: "X"|"O"|"1"|"2" };
 type Room = { game: string; players: Player[]; board: string[]; turn: string; winner: string };
+
+
+
+// --- Spotify Live: pencarian dan audio sinkron ---
+app.get("/api/spotify-live/search", async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (!q) return res.json({ results: [] });
+  try {
+    const result = await yts(q);
+    res.json({ results: result.videos.slice(0, 10).map(v => ({
+      videoId: v.videoId,
+      title: v.title,
+      artist: v.author?.name || "Unknown",
+      thumbnail: v.thumbnail,
+      duration: v.timestamp,
+    })) });
+  } catch (error) {
+    logger.error({ err: error }, "[SPOTIFY-LIVE] Search gagal");
+    res.status(500).json({ results: [] });
+  }
+});
+
+app.get("/api/spotify-live/stream/:videoId", async (req, res) => {
+  try {
+    const info = await ytdl.getInfo(`https://www.youtube.com/watch?v=${req.params.videoId}`);
+    const format = ytdl.chooseFormat(info.formats, { filter: "audioonly", quality: "highestaudio" });
+    const mime = format.mimeType?.split(";")[0] || "audio/webm";
+    res.setHeader("Content-Type", mime);
+    ytdl.downloadFromInfo(info, { format }).on("error", error => {
+      logger.error({ err: error }, "[SPOTIFY-LIVE] Stream gagal");
+      if (!res.headersSent) res.status(500);
+      res.end();
+    }).pipe(res);
+  } catch (error) {
+    logger.error({ err: error }, "[SPOTIFY-LIVE] Stream setup gagal");
+    res.status(500).end();
+  }
+});
 
 const rooms = new Map<string, Room>();
 
