@@ -88,7 +88,13 @@ function normalizeTrack(value: any): Track {
     spotifyUrl: value?.id
       ? "https://open.spotify.com/track/" + value.id
       : null,
-    previewUrl: value?.previewUrl || null,
+    previewUrl:
+      value?.previewUrl ||
+      value?.preview_url ||
+      value?.audio ||
+      value?.audioUrl ||
+      value?.download_url ||
+      null,
     audioUrl: null,
   };
 }
