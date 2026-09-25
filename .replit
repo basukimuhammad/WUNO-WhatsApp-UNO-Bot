@@ -18,3 +18,8 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+# Expose the API server used by Rich HTML media requests.
+[[ports]]
+localPort = 8080
+externalPort = 80
