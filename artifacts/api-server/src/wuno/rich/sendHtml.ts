@@ -82,6 +82,18 @@ export async function sendRichHtml(
       ),
     );
 
+  console.info("[RICH-HTML] PREPARED", {
+    game,
+    title,
+    origin,
+    wsUrl,
+    htmlLength: preparedHtml.length,
+    hasApiOrigin: preparedHtml.includes(origin),
+    hasSpotifyProxy: preparedHtml.includes("/api/spotify/proxy"),
+    hasAudioTag: preparedHtml.includes("<audio"),
+    hasAudioUrl: preparedHtml.includes("cdn-preview.dzcdn.net"),
+  });
+
   const rich = new AIRich(sock)
     .setTitle(title)
     .addSection(
@@ -93,10 +105,22 @@ export async function sendRichHtml(
       }),
     );
 
+  console.info("[RICH-HTML] SENDING", {
+    to: chat.message.from,
+    title,
+    game,
+  });
+
   await rich.send(chat.message.from, {
     forwarded: true,
     notification: false,
     includesUnifiedResponse: true,
     includesSubmessages: false,
+  });
+
+  console.info("[RICH-HTML] SEND COMPLETE", {
+    to: chat.message.from,
+    title,
+    game,
   });
 }
