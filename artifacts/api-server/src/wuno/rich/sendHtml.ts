@@ -55,6 +55,14 @@ export async function sendRichHtml(
     game === "spotify"
       ? wsUrl + "?game=spotify&room=" + room + "&player=" + player + "&name=" + name
       : wsUrl + "?game=" + encodeURIComponent(game) + "&roomId=" + room + "&playerId=" + player + "&playerName=" + name;
+  console.info("[RICH-HTML] PUBLIC ORIGIN", {
+    origin,
+    replitDevDomain: process.env.REPLIT_DEV_DOMAIN || null,
+    replitDomains: process.env.REPLIT_DOMAINS || null,
+    publicGameOrigin: process.env.PUBLIC_GAME_ORIGIN || null,
+    game,
+  });
+
   const preparedHtml = html
     .replaceAll("__WUNO_WS_URL__", JSON.stringify(gameUrl))
     .replaceAll("__WUNO_API_ORIGIN__", origin)
