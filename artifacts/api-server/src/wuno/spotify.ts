@@ -124,8 +124,8 @@ async function ytdlAudio(videoId:string){
   const info:any=await ytdlClient.getFullInfo(url);
 
   const formats=(info.formats||[]).filter((f:any)=>f.hasAudio&&!f.hasVideo);
-  const format=formats.find((f:any)=>/^audio\\/mp4/i.test(f.mimeType||""))
-    || formats.find((f:any)=>/^audio\\//i.test(f.mimeType||""))
+  const format=formats.find((f:any)=>/^audio\/mp4/i.test(f.mimeType||""))
+    || formats.find((f:any)=>/^audio\//i.test(f.mimeType||""))
     || formats.find((f:any)=>f.itag===140)
     || formats[0];
 
