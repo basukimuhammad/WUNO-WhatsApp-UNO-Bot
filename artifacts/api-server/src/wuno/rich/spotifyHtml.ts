@@ -8,7 +8,9 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   const t = tracks[0];
   if (!t) return '<html><body style="font-family:Arial;text-align:center;padding:30px">🎵 Lagu tidak ditemukan.</body></html>';
   const trackId = JSON.stringify(t.id);
-  const initialCover = t.thumbnail ? "__WUNO_API_ORIGIN__/api/spotify/proxy?url=" + encodeURIComponent(t.thumbnail) + "&ref=" + encodeURIComponent("https://open.spotify.com/") : "";
+  const initialCover = t.thumbnail
+    ? "__WUNO_API_ORIGIN__/api/spotify/cover/" + encodeURIComponent(t.id)
+    : "";
 
   return `<!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -18,7 +20,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <div class="query">Hasil untuk: ${esc(query)}</div>
 <img class="cover" id="cover" src="${esc(initialCover)}" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
-<audio id="audio" controls preload="metadata" src="${esc(t.audioUrl ? "__WUNO_API_ORIGIN__/api/spotify/proxy?url=" + encodeURIComponent(t.audioUrl) + "&ref=" + encodeURIComponent("https://spotsaver.net/") : "")}"></audio>
+<audio id="audio" controls preload="metadata" src="${esc("__WUNO_API_ORIGIN__/api/spotify/audio/" + encodeURIComponent(t.id))}"></audio>
 <div class="info" id="info">Spotify • audio siap diputar</div>
 </body></html>`;
 }
