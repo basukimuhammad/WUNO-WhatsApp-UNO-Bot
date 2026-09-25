@@ -1,7 +1,7 @@
 import type { Chat } from "../lib/Chat";
 import { sendRichHtml } from "../rich/sendHtml";
 import { buildSpotifyPlayerHtml } from "../rich/spotifyHtml";
-import { createSpotifySession, resolveSpotifyTrack, spotifySearch } from "../spotify";
+import { createSpotifySession, getSpotifyAudio, spotifySearch } from "../spotify";
 
 export default async function spotify(chat: Chat) {
   try {
@@ -26,9 +26,8 @@ export default async function spotify(chat: Chat) {
       return;
     }
 
-    // Siapkan track pertama sebelum kartu dikirim. Jadi audio player tidak perlu
-    // menjalankan proses YouTube/Y2Mate saat tombol Play ditekan.
-    await resolveSpotifyTrack(token, 0);
+    // Siapkan dan cache audio pertama sebelum kartu dikirim.
+    await getSpotifyAudio(token, 0);
 
     const html = buildSpotifyPlayerHtml(token, query, tracks.slice(0, 8));
     await sendRichHtml(chat, html, "🎵 WUNO Spotify", "spotify");
