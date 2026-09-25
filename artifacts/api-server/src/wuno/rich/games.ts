@@ -21,7 +21,7 @@ const W=10,H=20,S=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]]
 function np(){p=S[Math.random()*S.length|0].map(r=>[...r]);x=(W-p[0].length)/2|0;y=0;if(hit(0,0))over=1}function hit(dx,dy,q=p){return q.some((r,j)=>r.some((v,i)=>v&&(x+i+dx<0||x+i+dx>=W||y+j+dy>=H||g[y+j+dy]?.[x+i+dx])))}function merge(){p.forEach((r,j)=>r.forEach((v,i)=>{if(v)g[y+j][x+i]=1}))}function clear(){let n=0;g=g.filter(r=>r.some(v=>!v)?1:(n++,0));while(g.length<H)g.unshift(Array(W).fill(0));sc+=n*n*100}function draw(){let e=document.getElementById("b");e.innerHTML="";for(let j=0;j<H;j++)for(let i=0;i<W;i++){let d=document.createElement("div");d.className="c"+(g[j][i]?" f":"");e.appendChild(d)}p?.forEach((r,j)=>r.forEach((v,i)=>{if(v){let k=(y+j)*W+x+i;e.children[k]?.classList.add("f")}}));document.getElementById("s").textContent=over?"Game Over • Skor "+sc:"Skor "+sc}function step(){if(over)return;if(!hit(0,1))y++;else{merge();clear();np()}draw()}function mv(d){if(!over&&!hit(d,0))x+=d;draw()}function rot(){let q=p[0].map((_,i)=>p.map(r=>r[i]).reverse());if(!hit(0,0,q))p=q;draw()}function down(){while(!hit(0,1))y++;step()}function hard(){down()}np();draw();setInterval(step,600);
 </script></body></html>`;
 
-export const SPOTIFY_HTML = String.raw\`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+export const SPOTIFY_HTML = String.raw`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 body{margin:0;background:transparent;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;padding:12px}
 .app{width:100%;max-width:520px;margin:auto}.card{background:linear-gradient(180deg,#262626 0%,#121212 46%,#0d0d0d 100%);border-radius:20px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
@@ -65,6 +65,6 @@ audio.addEventListener("play",()=>playBtn.textContent="⏸");audio.addEventListe
 sendBtn.onclick=async()=>{if(idx<0)return;sendBtn.disabled=true;sendBtn.textContent="Mengirim...";status("Mengirim audio ke chat...");try{const r=await fetch(api("/api/spotify/send?index="+idx),{method:"POST"});const d=await r.json();if(!r.ok)throw new Error(d.error||"Gagal mengirim");sendBtn.textContent="Terkirim ✓";status("Audio sudah dikirim ke WhatsApp.");setTimeout(()=>{sendBtn.textContent="Kirim ke WhatsApp";sendBtn.disabled=false},2500)}catch(e){sendBtn.textContent="Gagal";status(e.message||"Gagal mengirim");setTimeout(()=>{sendBtn.textContent="Kirim ke WhatsApp";sendBtn.disabled=false},2500)}};
 cover.onerror=()=>{cover.src=fallback};
 if(initialQuery){qEl.value=initialQuery;search()}
-</script></body></html>\`;
+</script></body></html>`;
 
 export { SPOTIFY_LIVE_HTML } from "../spotifyLive/html";
