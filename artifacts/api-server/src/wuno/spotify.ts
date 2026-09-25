@@ -12,7 +12,7 @@ const UA = "Mozilla/5.0 (Linux; Android 13; SM-A536E) AppleWebKit/537.36 Chrome/
 const SESSION_TTL = 15 * 60 * 1000;
 
 type Track = { id:string|null; title:string; artist:string; album:string; duration:string; thumbnail:string|null; spotifyUrl:string|null; audioUrl?:string|null };
-type Session = { client:Client; chatId:string; createdAt:number; tracks:Track[] };
+type Session = { client:Client; chatId:string; createdAt:number; tracks:Track[]; audioBuffers:Map<number,Buffer> };
 const sessions=new Map<string,Session>();
 
 async function json(url:string, init?:RequestInit, timeoutMs=30000){
@@ -114,7 +114,7 @@ async function y2mGet(videoId:string){
   throw new Error("Audio tidak tersedia");
 }
 function get(token:string){const s=sessions.get(token);if(!s||Date.now()-s.createdAt>SESSION_TTL){sessions.delete(token);throw new Error("Sesi Spotify kedaluwarsa. Buka Spotify lagi.")}return s}
-export function createSpotifySession(client:Client,chatId:string){const token=randomBytes(24).toString("hex");sessions.set(token,{client,chatId,createdAt:Date.now(),tracks:[]});return token}
+export function createSpotifySession(client:Client,chatId:string){const token=randomBytes(24).toString("hex");sessions.set(token,{client,chatId,createdAt:Date.now(),tracks:[],audioBuffers:new Map()});return token}
 export async function spotifySearch(token:string,q:string){const s=get(token);const v=q.trim();if(!v)throw new Error("Query kosong");s.tracks=(/^https?:\/\/open\.spotify\.com\//i.test(v)?await infoSpotify(v.split("?")[0]):await searchSpotify(v)).slice(0,12);return s.tracks.map(({audioUrl,...x})=>x)}
 export function getSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");return t}
 async function ytdlAudio(videoId:string){
@@ -142,14 +142,24 @@ export async function resolveSpotifyTrack(token:string,index:number){
   return t;
 }
 async function audio(token:string,index:number){
+  const s=get(token);
+  const cached=s.audioBuffers.get(index);
+  if(cached)return{track:s.tracks[index]!,buffer:cached};
+
   const t=await resolveSpotifyTrack(token,index);
+  let buffer:Buffer;
+
   if(t.audioUrl?.startsWith("ytdl://")){
     const videoId=t.audioUrl.slice("ytdl://".length);
-    return{track:t,buffer:await ytdlAudio(videoId)};
+    buffer=await ytdlAudio(videoId);
+  }else{
+    const r=await fetch(t.audioUrl!,{headers:{"User-Agent":UA,"Referer":"https://y2mate.gs/"}});
+    if(!r.ok)throw new Error("Audio gagal diambil");
+    buffer=Buffer.from(await r.arrayBuffer());
   }
-  const r=await fetch(t.audioUrl!,{headers:{"User-Agent":UA,"Referer":"https://y2mate.gs/"}});
-  if(!r.ok)throw new Error("Audio gagal diambil");
-  return{track:t,buffer:Buffer.from(await r.arrayBuffer())};
+
+  s.audioBuffers.set(index,buffer);
+  return{track:t,buffer};
 }
 export async function getSpotifyAudio(token:string,index:number){return audio(token,index)}
 export async function sendSpotifyTrack(token:string,index:number){const s=get(token),{track,buffer}=await audio(token,index);const media=new MessageMedia("audio/mpeg",buffer.toString("base64"),track.title.replace(/[<>:"/\\|?*\x00-\x1F]/g," ").slice(0,120)+".mp3");await s.client.sendMessage(s.chatId,media);return{title:track.title}}
