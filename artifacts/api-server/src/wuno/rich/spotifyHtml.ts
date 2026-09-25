@@ -18,9 +18,9 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <div class="query">Hasil untuk: ${esc(query)}</div>
 <img class="cover" id="cover" src="${esc(initialCover)}" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
-<audio id="audio" controls preload="metadata" src="${esc(t.audioUrl || "")}"></audio>
+<audio id="audio" controls preload="metadata" src="${esc(t.audioUrl ? "__WUNO_API_ORIGIN__/api/spotify/proxy?url=" + encodeURIComponent(t.audioUrl) + "&ref=" + encodeURIComponent("https://spotsaver.net/") : "")}"></audio>
 <div class="info" id="info">Spotify • audio siap diputar</div>
-</script></body></html>`;
+</body></html>`;
 }
 
 export const SPOTIFY_PLAYER_HTML = "";
