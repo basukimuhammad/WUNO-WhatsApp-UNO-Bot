@@ -5,7 +5,7 @@ import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { getSpotifyAudio, getSpotifyAudioById, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
+import { getSpotifyAudio, getSpotifyAudioById, resolveSpotifyHtmlAudio, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -33,30 +33,56 @@ app.get("/api/spotify/stream", async (req, res) => {
     const id = String(req.query.id || "").trim();
     if (!id) return res.status(400).type("text/plain").send("id wajib diisi");
 
-    const { track, buffer, mime } = await getSpotifyAudioById(id);
+    const { track, audioUrl } = await resolveSpotifyHtmlAudio(id);
+    const range = String(req.headers.range || "");
+    const upstream = await fetch(audioUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "*/*",
+        Referer: audioUrl.includes("y2mate") || audioUrl.includes("etacloud")
+          ? "https://y2mate.gs/"
+          : "https://spotsaver.net/",
+        ...(range ? { Range: range } : {}),
+      },
+      redirect: "follow",
+    });
 
     logger.info({
       id,
       title: track.title,
-      bytes: buffer.length,
-      mime,
-    }, "[SPOTIFY] Audio siap diputar");
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+      contentLength: upstream.headers.get("content-length"),
+      range,
+    }, "[SPOTIFY] Audio upstream");
 
-    res.setHeader("Content-Type", mime || "audio/mpeg");
-    res.setHeader("Content-Length", String(buffer.length));
+    if (!upstream.ok && upstream.status !== 206) {
+      throw new Error("Audio upstream HTTP " + upstream.status);
+    }
+
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.setHeader(
+      "Content-Type",
+      (upstream.headers.get("content-type") || "audio/mpeg").split(";")[0],
+    );
     res.setHeader("Accept-Ranges", "bytes");
-    res.setHeader("Cache-Control", "public, max-age=60");
-    return res.send(buffer);
-  } catch (e) {
-    logger.error({
-      err: e,
-      id: String(req.query.id || ""),
-    }, "[SPOTIFY] Stream gagal");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
-    return res
-      .status(502)
-      .type("text/plain")
-      .send(e instanceof Error ? e.message : "Stream gagal");
+    const length = upstream.headers.get("content-length");
+    const contentRange = upstream.headers.get("content-range");
+    if (length) res.setHeader("Content-Length", length);
+    if (contentRange) res.setHeader("Content-Range", contentRange);
+
+    if (!upstream.body) return res.end();
+
+    const { Readable } = await import("node:stream");
+    return Readable.fromWeb(upstream.body as any).pipe(res);
+  } catch (e) {
+    logger.error({ err: e, id: String(req.query.id || "") }, "[SPOTIFY] Stream gagal");
+    return res.status(502).type("text/plain").send(
+      e instanceof Error ? e.message : "Stream gagal",
+    );
   }
 });
 
