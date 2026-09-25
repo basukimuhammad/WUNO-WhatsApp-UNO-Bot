@@ -29,7 +29,7 @@ export function buildSpotifyPlayerHtml(
   const origin = "__WUNO_API_ORIGIN__";
   const streamUrl = origin + "/api/spotify/stream?token=" + tokenQ + "&index=0";
   const coverUrl = origin + "/api/spotify/cover?token=" + tokenQ + "&index=0";
-  const sendUrl = origin + "/api/spotify/send?token=" + tokenQ + "&index=0";
+  const sendUrl = origin + "/api/spotify/download?token=" + tokenQ + "&index=0";
 
   return "<!doctype html>" +
     '<html lang="id"><head>' +
@@ -56,7 +56,7 @@ export function buildSpotifyPlayerHtml(
     '<div class="title">' + esc(t.title) + '</div>' +
     '<div class="artist">' + esc(t.artist || "Unknown Artist") +
     (t.album ? " • " + esc(t.album) : "") + '</div></div>' +
-    '<audio controls preload="none" src="' + streamUrl + '"></audio>' +
+    '<audio controls preload="auto" src="' + streamUrl + '"></audio>' +
     '<a class="download" href="' + sendUrl + '" target="_blank" rel="noopener">Download MP3</a>' +
     '<div class="info">SpotSaver • Audio via YouTube Music / Y2Mate</div>' +
     '</div></div></body></html>';
