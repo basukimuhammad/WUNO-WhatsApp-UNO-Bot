@@ -121,29 +121,32 @@ const ytdlClient = new YtdlCore();
 
 async function ytdlAudio(videoId:string){
   const url="https://www.youtube.com/watch?v="+encodeURIComponent(videoId);
+  const info:any=await ytdlClient.getFullInfo(url);
 
-  // Biarkan library memilih format audio dan melakukan request stream-nya sendiri.
-  // Jangan mengambil format.url lalu fetch manual karena URL YouTube dapat menolak
-  // request kedua dengan HTTP 403.
-  const stream:any = await ytdlClient.download(url,{
-    filter:"audioonly",
-    highWaterMark:1<<24,
-  });
+  // Jangan memakai download(url, { filter: "audioonly" }) di ybd v6:
+  // versi ini masih meneruskan default quality "highest" ke chooseFormat.
+  // Pilih format audio yang benar-benar memiliki URL, lalu kirim format itu
+  // secara eksplisit ke downloadFromInfo.
+  const audioFormats=(info.formats||[])
+    .filter((f:any)=>f.hasAudio&&!f.hasVideo&&f.url);
 
+  const format=
+    audioFormats.find((f:any)=>f.itag===140) ||
+    audioFormats.find((f:any)=>/^audio\\/mp4/i.test(f.mimeType||"")) ||
+    audioFormats.find((f:any)=>/^audio\\//i.test(f.mimeType||"")) ||
+    audioFormats[0];
+
+  if(!format?.url)throw new Error("YouTube tidak menyediakan format audio yang bisa diunduh.");
+
+  const stream:any=await ytdlClient.downloadFromInfo(info,{format});
   const chunks:Buffer[]=[];
   for await(const chunk of stream){
     chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk));
   }
 
-  const mime=String(
-    stream?.format?.mimeType ||
-    stream?.format?.mime ||
-    "audio/mp4"
-  ).split(";")[0];
-
   return {
     buffer:Buffer.concat(chunks),
-    mime,
+    mime:String(format.mimeType||"audio/mpeg").split(";")[0],
   };
 }
 export async function resolveSpotifyTrack(token:string,index:number){
