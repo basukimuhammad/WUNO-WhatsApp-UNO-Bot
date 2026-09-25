@@ -237,10 +237,9 @@
 <audio id="audio"></audio>
 
 
-<script>  const params = new URLSearchParams(window.location.search);
-  const roomId = params.get('roomId') || '';
-  const playerId = params.get('playerId') || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
-  const playerName = params.get('playerName') || 'Pendengar';
+<script>  const roomId = "__WUNO_ROOM_ID__";
+  const playerId = "__WUNO_PLAYER_ID__";
+  const playerName = "__WUNO_PLAYER_NAME__";
   const API_ORIGIN = "__WUNO_API_ORIGIN__";
   const roomBase = API_ORIGIN + '/api/spotify-live/room/' + encodeURIComponent(roomId);
   const eventUrl = roomBase + '/event';
@@ -291,7 +290,7 @@
       const state = await api(roomBase + '?playerId=' + encodeURIComponent(playerId) + '&playerName=' + encodeURIComponent(playerName));
       renderState(state);
     } catch (error) {
-      status('Koneksi room gagal. Buka ulang kartu untuk mencoba lagi.');
+      status('Gagal terhubung: ' + (error && error.message ? error.message : 'request gagal'));
     }
   }
 
