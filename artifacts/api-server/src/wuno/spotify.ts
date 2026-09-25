@@ -32,6 +32,7 @@ type Session = {
 };
 
 const sessions = new Map<string, Session>();
+const spotifyTrackCache = new Map<string, Track>();
 
 async function requestJson(
   url: string,
@@ -110,10 +111,16 @@ async function searchSpotify(q: string): Promise<Track[]> {
     throw new Error("SpotSaver tidak mengembalikan hasil");
   }
 
-  return data.items
+  const tracks = data.items
     .map(normalizeTrack)
-    .filter((track: Track) => track.title)
+    .filter((track: Track) => track.title && track.id)
     .slice(0, 12);
+
+  for (const track of tracks) {
+    spotifyTrackCache.set(String(track.id), track);
+  }
+
+  return tracks;
 }
 
 async function infoSpotify(url: string): Promise<Track[]> {
@@ -127,7 +134,11 @@ async function infoSpotify(url: string): Promise<Track[]> {
     throw new Error("Info Spotify gagal");
   }
 
-  return data.items.map(normalizeTrack);
+  const tracks = data.items.map(normalizeTrack).filter((track: Track) => track.id);
+  for (const track of tracks) {
+    spotifyTrackCache.set(String(track.id), track);
+  }
+  return tracks;
 }
 
 async function ytmSearch(query: string): Promise<Array<{ videoId: string; title: string; subtitle: string }>> {
@@ -498,6 +509,12 @@ export async function spotifySearch(token: string, query: string): Promise<Track
   ).slice(0, 12);
 
   return session.tracks.map(({ audioUrl, ...track }) => track);
+}
+
+export function getSpotifyTrackById(id: string): Track {
+  const track = spotifyTrackCache.get(String(id));
+  if (!track) throw new Error("Lagu tidak ditemukan di cache.");
+  return track;
 }
 
 export function getSpotifyTrack(token: string, index: number): Track {
