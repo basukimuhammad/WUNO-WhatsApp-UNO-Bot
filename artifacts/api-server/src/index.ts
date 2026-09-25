@@ -79,6 +79,59 @@ wss.on("connection",(ws,req)=>{
   const roomId=u.searchParams.get("room")||"private";
   const playerId=u.searchParams.get("player")||Math.random().toString(36);
   const name=decodeURIComponent(u.searchParams.get("name")||"Pemain");
+  if (game === "spotifylive") {
+    const room = getSpotifyLiveRoom(roomId.toUpperCase());
+    if (!room) { ws.close(1008, "Room Spotify Live tidak ditemukan"); return; }
+
+    const member: SpotifyLiveMember = {
+      id: playerId,
+      name: name || "Pendengar",
+      ws,
+    };
+    joinSpotifyLiveRoom(room, member);
+
+    ws.on("message", raw => {
+      try {
+        const a = JSON.parse(raw.toString());
+        if (a.type === "join") return;
+        if (!spotifyLiveRoomIsHost(room, playerId)) {
+          if (a.type === "room-chat") {
+            const text = String(a.text || "").trim().slice(0, 300);
+            if (text) {
+              for (const m of room.members.values()) {
+                sendSpotifyLive(m, { type: "room-chat", name: member.name, text });
+              }
+            }
+          }
+          return;
+        }
+        if (a.type === "play-track" && a.track?.videoId) {
+          setSpotifyLiveTrack(room, {
+            videoId: String(a.track.videoId),
+            title: String(a.track.title || ""),
+            artist: String(a.track.artist || ""),
+            thumbnail: String(a.track.thumbnail || ""),
+            duration: String(a.track.duration || ""),
+          });
+          return;
+        }
+        if (a.type === "toggle-play") {
+          toggleSpotifyLive(room, Boolean(a.isPlaying), Number(a.position || 0));
+          return;
+        }
+        if (a.type === "sync-tick") {
+          syncSpotifyLive(room, Number(a.position || 0));
+          return;
+        }
+        if (a.type === "seek") {
+          toggleSpotifyLive(room, room.isPlaying, Number(a.position || 0));
+        }
+      } catch {}
+    });
+    ws.on("close", () => leaveSpotifyLiveRoom(room, playerId));
+    return;
+  }
+
   if(!["tictactoe","connect4"].includes(game)){ws.close(1008,"Game multiplayer tidak tersedia");return}
   const key=game+":"+roomId;
   let room=rooms.get(key);
