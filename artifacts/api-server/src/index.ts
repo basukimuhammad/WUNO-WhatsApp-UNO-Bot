@@ -158,6 +158,66 @@ wss.on("connection",(ws,req)=>{
   const roomId=u.searchParams.get("room")||"private";
   const playerId=u.searchParams.get("player")||Math.random().toString(36);
   const name=decodeURIComponent(u.searchParams.get("name")||"Pemain");
+  if (game === "spotify") {
+    ws.on("message", async raw => {
+      let action:any;
+      try { action = JSON.parse(raw.toString()); } catch { return; }
+      const requestId = String(action?.requestId || "");
+      if (!requestId) return;
+
+      try {
+        if (action.type === "spotifyResolve") {
+          const token = String(action.token || "");
+          const indexValue = Number(action.index);
+          if (!Number.isInteger(indexValue) || indexValue < 0) {
+            throw new Error("Index lagu tidak valid.");
+          }
+          const track = await resolveSpotifyTrack(token, indexValue);
+          ws.send(JSON.stringify({
+            type: "spotifyActionResult",
+            requestId,
+            success: true,
+            audioUrl:
+              "/api/spotify/stream?token=" +
+              encodeURIComponent(token) +
+              "&index=" +
+              encodeURIComponent(String(indexValue)),
+            cover: track.thumbnail || null,
+          }));
+          return;
+        }
+
+        if (action.type === "spotifyDownload") {
+          const token = String(action.token || "");
+          const indexValue = Number(action.index);
+          if (!Number.isInteger(indexValue) || indexValue < 0) {
+            throw new Error("Index lagu tidak valid.");
+          }
+          const result = await sendSpotifyTrack(token, indexValue);
+          ws.send(JSON.stringify({
+            type: "spotifyActionResult",
+            requestId,
+            success: true,
+            message: "Audio sudah dikirim ke WhatsApp.",
+            title: result.title,
+          }));
+          return;
+        }
+
+        throw new Error("Aksi Spotify tidak dikenal.");
+      } catch (error) {
+        logger.error({ err: error }, "[SPOTIFY] HTML action gagal");
+        ws.send(JSON.stringify({
+          type: "spotifyActionResult",
+          requestId,
+          success: false,
+          message: error instanceof Error ? error.message : "Aksi Spotify gagal",
+        }));
+      }
+    });
+    return;
+  }
+
   if (game === "spotifylive") {
     const room = getSpotifyLiveRoom(roomId.toUpperCase());
     if (!room) { ws.close(1008, "Room Spotify Live tidak ditemukan"); return; }
