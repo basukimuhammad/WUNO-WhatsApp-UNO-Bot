@@ -819,4 +819,4 @@ wss.on("connection",(ws,req)=>{
   ws.on("close",()=>{setTimeout(()=>{if(room?.players.every(p=>p.ws.readyState!==WebSocket.OPEN)){rooms.delete(key)}},30000)});
 });
 
-server.listen(port,()=>logger.info({port},"Server listening"));
+server.listen(port, "0.0.0.0", () => logger.info({ port, address: "0.0.0.0" }, "Server listening"));
