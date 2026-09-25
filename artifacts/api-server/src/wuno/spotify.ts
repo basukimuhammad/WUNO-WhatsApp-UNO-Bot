@@ -121,29 +121,29 @@ const ytdlClient = new YtdlCore();
 
 async function ytdlAudio(videoId:string){
   const url="https://www.youtube.com/watch?v="+encodeURIComponent(videoId);
-  const info:any=await ytdlClient.getFullInfo(url);
 
-  const formats=(info.formats||[]).filter((f:any)=>f.hasAudio&&!f.hasVideo);
-  const format=formats.find((f:any)=>/^audio\/mp4/i.test(f.mimeType||""))
-    || formats.find((f:any)=>/^audio\//i.test(f.mimeType||""))
-    || formats.find((f:any)=>f.itag===140)
-    || formats[0];
-
-  if(!format?.url)throw new Error("Format audio YouTube tidak tersedia");
-
-  const response=await fetch(format.url,{
-    headers:{
-      "User-Agent":UA,
-      "Accept":"*/*",
-      "Referer":"https://www.youtube.com/",
-    },
+  // Biarkan library memilih format audio dan melakukan request stream-nya sendiri.
+  // Jangan mengambil format.url lalu fetch manual karena URL YouTube dapat menolak
+  // request kedua dengan HTTP 403.
+  const stream:any = await ytdlClient.download(url,{
+    filter:"audioonly",
+    highWaterMark:1<<24,
   });
 
-  if(!response.ok)throw new Error("YouTube audio HTTP "+response.status);
+  const chunks:Buffer[]=[];
+  for await(const chunk of stream){
+    chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk));
+  }
+
+  const mime=String(
+    stream?.format?.mimeType ||
+    stream?.format?.mime ||
+    "audio/mp4"
+  ).split(";")[0];
 
   return {
-    buffer:Buffer.from(await response.arrayBuffer()),
-    mime:String(format.mimeType||"audio/mpeg").split(";")[0],
+    buffer:Buffer.concat(chunks),
+    mime,
   };
 }
 export async function resolveSpotifyTrack(token:string,index:number){
