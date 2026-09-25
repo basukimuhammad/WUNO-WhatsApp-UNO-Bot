@@ -20,6 +20,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <div class="query">Hasil untuk: ${esc(query)}</div>
 <img class="cover" id="cover" src="${esc(initialCover)}" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
+<button id="playBtn" type="button">▶ Putar lagu</button>
 <audio id="audio" controls preload="none"></audio>
 <div class="info" id="info">Spotify • siap diputar</div>
 <script>
@@ -66,14 +67,29 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     status("❌ Audio gagal dimuat");
   });
 
-  audio.addEventListener("play", function () {
-    log("PLAY_CLICK");
+  function startAudio(source) {
+    log("PLAY_CLICK", { source: source || "unknown" });
     status("⏳ Menghubungi server audio...");
     if (audio.src !== audioUrl) {
-      log("SET_SRC");
+      log("SET_SRC", { url: audioUrl });
       audio.src = audioUrl;
       audio.load();
     }
+    const promise = audio.play();
+    if (promise && promise.catch) {
+      promise.catch(function (err) {
+        log("PLAY_REJECTED", { message: err && err.message ? err.message : String(err) });
+        status("⚠️ Tekan Play pada kontrol audio");
+      });
+    }
+  }
+
+  document.getElementById("playBtn").addEventListener("click", function () {
+    startAudio("button");
+  });
+
+  audio.addEventListener("play", function () {
+    log("NATIVE_PLAY_EVENT");
   });
 
   window.addEventListener("error", function (event) {
