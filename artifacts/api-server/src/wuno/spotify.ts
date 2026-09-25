@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { MessageMedia, type Client } from "whatsapp-web.js";
+import yts from "yt-search";
 
 const BASE = "https://spotsaver.net";
 const YTM_API = "https://music.youtube.com/youtubei/v1/search";
@@ -41,9 +42,26 @@ async function json(url:string, init?:RequestInit, timeoutMs=30000){
 }
 function track(t:any):Track{return{id:t?.id??null,title:t?.title||"Unknown Title",artist:t?.artist||"Unknown Artist",album:t?.album||"Unknown Album",duration:t?.duration||"0:00",thumbnail:t?.thumbnail||null,spotifyUrl:t?.id?"https://open.spotify.com/track/"+t.id:null,audioUrl:null}}
 async function searchSpotify(q:string){
-  const d:any=await json(BASE+"/api/spotify?q="+encodeURIComponent(q));
-  if(!d?.items)throw new Error("Search Spotify gagal: respons tidak berisi items");
-  return d.items.map(track).filter((x:Track)=>x.title);
+  try{
+    const d:any=await json(BASE+"/api/spotify?q="+encodeURIComponent(q),undefined,15000);
+    if(!d?.items)throw new Error("Respons Spotify tidak berisi items");
+    const items=d.items.map(track).filter((x:Track)=>x.title);
+    if(items.length)return items;
+  }catch(error){
+    console.warn("[SPOTIFY] Spotsaver search gagal, memakai fallback YouTube:", error instanceof Error ? error.message : error);
+  }
+
+  const result=await yts(q);
+  return result.videos.slice(0,12).map((v:any)=>({
+    id:null,
+    title:v.title||"Unknown Title",
+    artist:v.author?.name||"Unknown Artist",
+    album:"YouTube",
+    duration:v.timestamp||"0:00",
+    thumbnail:v.thumbnail||null,
+    spotifyUrl:null,
+    audioUrl:null,
+  })).filter((x:Track)=>x.title);
 }
 async function infoSpotify(url:string){const d:any=await json(BASE+"/api/spotify?url="+encodeURIComponent(url));if(!d?.items)throw new Error("Info Spotify gagal");return d.items.map(track)}
 async function ytmSearch(q:string){const body={context:{client:{clientName:"WEB_REMIX",clientVersion:YTM_VERSION,hl:"id",gl:"ID"}},query:q,params:"EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"};const d:any=await json(YTM_API+"?key="+YTM_KEY+"&prettyPrint=false",{method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":YTM_KEY,"X-YouTube-Client-Name":"67","X-YouTube-Client-Version":YTM_VERSION,"Origin":"https://music.youtube.com","Referer":"https://music.youtube.com/"},body:JSON.stringify(body)});const out:any[]=[];for(const tab of d?.contents?.tabbedSearchResultsRenderer?.tabs||[]){for(const sec of tab?.tabRenderer?.content?.sectionListRenderer?.contents||[]){for(const item of sec?.musicShelfRenderer?.contents||[]){const x=item?.musicResponsiveListItemRenderer;if(!x)continue;const id=x?.playlistItemData?.videoId;const texts=(x.flexColumns||[]).map((c:any)=>(c?.musicResponsiveListItemFlexColumnRenderer?.text?.runs||[]).map((r:any)=>r.text).join("").trim()).filter(Boolean);if(id&&texts[0])out.push({videoId:id,title:texts[0],subtitle:texts[1]||""})}}}return out}
