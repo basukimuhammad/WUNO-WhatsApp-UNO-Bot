@@ -10,161 +10,540 @@ const Y2MATE_KEY = "c6a644f406b57d0dd83837c868a7482e";
 const UA = "Mozilla/5.0 (Linux; Android 13; SM-A536E) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36";
 const SESSION_TTL = 15 * 60 * 1000;
 
-type Track = { id:string|null; title:string; artist:string; album:string; duration:string; thumbnail:string|null; spotifyUrl:string|null; audioUrl?:string|null };
-type Session = { client:Client; chatId:string; createdAt:number; tracks:Track[]; audioBuffers:Map<number,Buffer>; audioMimes:Map<number,string> };
-const sessions=new Map<string,Session>();
+type Track = {
+  id: string | null;
+  title: string;
+  artist: string;
+  album: string;
+  duration: string;
+  thumbnail: string | null;
+  spotifyUrl: string | null;
+  audioUrl?: string | null;
+};
 
-async function json(url:string, init?:RequestInit, timeoutMs=30000){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  try{
-    const r=await fetch(url,{
+type Session = {
+  client: Client;
+  chatId: string;
+  createdAt: number;
+  tracks: Track[];
+  audioBuffers: Map<number, Buffer>;
+  audioMimes: Map<number, string>;
+};
+
+const sessions = new Map<string, Session>();
+
+async function requestJson(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = 45000,
+): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
       ...init,
-      signal:controller.signal,
-      headers:{
-        "User-Agent":UA,
-        "Accept":"application/json, text/plain, */*",
-        "Accept-Language":"id-ID,id;q=0.9,en;q=0.8",
-        "Referer":BASE+"/id/",
-        "Origin":BASE,
-        ...(init?.headers||{})
-      }
+      signal: controller.signal,
+      headers: {
+        "User-Agent": UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
+        ...(init.headers || {}),
+      },
     });
-    const t=await r.text();
-    let d:any;try{d=JSON.parse(t)}catch{d=t}
-    if(!r.ok)throw new Error("HTTP "+r.status+(typeof d==="string"&&d?": "+d.slice(0,120):""));
-    return d;
-  }catch(error){
-    if(error instanceof Error&&error.name==="AbortError")throw new Error("Permintaan timeout. Server Spotify sedang lambat.");
-    throw error;
-  }finally{clearTimeout(timer)}
-}
-function track(t:any):Track{return{id:t?.id??null,title:t?.title||"Unknown Title",artist:t?.artist||"Unknown Artist",album:t?.album||"Unknown Album",duration:t?.duration||"0:00",thumbnail:t?.thumbnail||null,spotifyUrl:t?.id?"https://open.spotify.com/track/"+t.id:null,audioUrl:null}}
-async function searchSpotify(q:string){
-  const d:any=await json(BASE+"/api/spotify?q="+encodeURIComponent(q),undefined,20000);
-  if(!d?.items)throw new Error("SpotSaver tidak mengembalikan hasil");
-  return d.items.map(track).filter((x:Track)=>x.title).slice(0,12);
-}
-async function infoSpotify(url:string){const d:any=await json(BASE+"/api/spotify?url="+encodeURIComponent(url));if(!d?.items)throw new Error("Info Spotify gagal");return d.items.map(track)}
-async function ytmSearch(q:string){const body={context:{client:{clientName:"WEB_REMIX",clientVersion:YTM_VERSION,hl:"id",gl:"ID"}},query:q,params:"EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"};const d:any=await json(YTM_API+"?key="+YTM_KEY+"&prettyPrint=false",{method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":YTM_KEY,"X-YouTube-Client-Name":"67","X-YouTube-Client-Version":YTM_VERSION,"Origin":"https://music.youtube.com","Referer":"https://music.youtube.com/"},body:JSON.stringify(body)});const out:any[]=[];for(const tab of d?.contents?.tabbedSearchResultsRenderer?.tabs||[]){for(const sec of tab?.tabRenderer?.content?.sectionListRenderer?.contents||[]){for(const item of sec?.musicShelfRenderer?.contents||[]){const x=item?.musicResponsiveListItemRenderer;if(!x)continue;const id=x?.playlistItemData?.videoId;const texts=(x.flexColumns||[]).map((c:any)=>(c?.musicResponsiveListItemFlexColumnRenderer?.text?.runs||[]).map((r:any)=>r.text).join("").trim()).filter(Boolean);if(id&&texts[0])out.push({videoId:id,title:texts[0],subtitle:texts[1]||""})}}}return out}
-async function jsonExternal(url:string, init?:RequestInit, timeoutMs=30000){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  try{
-    const r=await fetch(url,{...init,signal:controller.signal,headers:{
-      "User-Agent":UA,
-      "Accept":"application/json, text/plain, */*",
-      ...(init?.headers||{})
-    }});
-    const text=await r.text();
-    let data:any;
-    try{data=JSON.parse(text)}catch{data=text}
-    if(!r.ok)throw new Error("HTTP "+r.status);
+
+    const text = await response.text();
+    let data: any = text;
+    try {
+      data = JSON.parse(text);
+    } catch {}
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}` +
+          (typeof data === "string" && data ? `: ${data.slice(0, 180)}` : ""),
+      );
+    }
+
     return data;
-  }catch(error){
-    if(error instanceof Error&&error.name==="AbortError")throw new Error("Request timeout");
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timeout");
+    }
     throw error;
-  }finally{clearTimeout(timer)}
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function downloadResolved(url:string,referer:string){
-  const r=await fetch(url,{headers:{
-    "User-Agent":UA,
-    "Accept":"*/*",
-    "Referer":referer,
-  }});
-  if(!r.ok)throw new Error("Audio HTTP "+r.status);
-  return{
-    buffer:Buffer.from(await r.arrayBuffer()),
-    mime:String(r.headers.get("content-type")||"audio/mpeg").split(";")[0],
+function normalizeTrack(value: any): Track {
+  return {
+    id: value?.id ?? null,
+    title: value?.title || "Unknown Title",
+    artist: value?.artist || "Unknown Artist",
+    album: value?.album || "Unknown Album",
+    duration: value?.duration || "0:00",
+    thumbnail: value?.thumbnail || null,
+    spotifyUrl: value?.id
+      ? "https://open.spotify.com/track/" + value.id
+      : null,
+    audioUrl: null,
   };
 }
 
-async function ytdlv2(videoUrl:string){
-  const d:any=await jsonExternal(
-    "https://api.nekolabs.my.id/downloader/youtube/v1?url="+encodeURIComponent(videoUrl)+"&format=mp3",
-    undefined,
-    45000
+async function searchSpotify(q: string): Promise<Track[]> {
+  const data = await requestJson(
+    BASE + "/api/spotify?q=" + encodeURIComponent(q),
+    {},
+    20000,
   );
-  if(!d?.success||!d?.result?.downloadUrl)throw new Error("ytDownloader v2 gagal");
-  return downloadResolved(String(d.result.downloadUrl),"https://api.nekolabs.my.id/");
+
+  if (!data?.items) {
+    throw new Error("SpotSaver tidak mengembalikan hasil");
+  }
+
+  return data.items
+    .map(normalizeTrack)
+    .filter((track: Track) => track.title)
+    .slice(0, 12);
 }
 
-async function ytdlv1(videoUrl:string){
-  const d:any=await jsonExternal(
-    "https://ytdlpyton.nvlgroup.my.id/download/audio?url="+encodeURIComponent(videoUrl)+"&mode=url",
-    undefined,
-    45000
+async function infoSpotify(url: string): Promise<Track[]> {
+  const data = await requestJson(
+    BASE + "/api/spotify?url=" + encodeURIComponent(url),
+    {},
+    30000,
   );
-  if(!d?.download_url)throw new Error("ytDownloader v1 gagal");
-  return downloadResolved(String(d.download_url),"https://ytdlpyton.nvlgroup.my.id/");
+
+  if (!data?.items) {
+    throw new Error("Info Spotify gagal");
+  }
+
+  return data.items.map(normalizeTrack);
 }
 
-async function ytdlv3(videoUrl:string){
-  const d:any=await jsonExternal(
-    "https://anabot.my.id/api/download/ytmp4?url="+encodeURIComponent(videoUrl)+"&quality=720p&apikey=freeApikey",
-    undefined,
-    45000
+async function ytmSearch(query: string): Promise<Array<{ videoId: string; title: string; subtitle: string }>> {
+  const body = {
+    context: {
+      client: {
+        clientName: "WEB_REMIX",
+        clientVersion: YTM_VERSION,
+        hl: "id",
+        gl: "ID",
+      },
+    },
+    query,
+    params: "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D",
+  };
+
+  const data = await requestJson(
+    YTM_API + "?key=" + YTM_KEY + "&prettyPrint=false",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": YTM_KEY,
+        "X-YouTube-Client-Name": "67",
+        "X-YouTube-Client-Version": YTM_VERSION,
+        Origin: "https://music.youtube.com",
+        Referer: "https://music.youtube.com/",
+      },
+      body: JSON.stringify(body),
+    },
+    30000,
   );
-  const url=d?.data?.result?.urls;
-  if(!url)throw new Error("ytDownloader v3 gagal");
-  return downloadResolved(String(Array.isArray(url)?url[0]:url),"https://anabot.my.id/");
-}
 
-async function youtubeAudio(videoId:string){
-  const videoUrl="https://www.youtube.com/watch?v="+videoId;
-  const errors:string[]=[];
+  const results: Array<{ videoId: string; title: string; subtitle: string }> = [];
 
-  try{
-    const url=await convert1s(videoUrl);
-    return await fetchDownload(url,"https://media.ytmp3.gg/");
-  }catch(e){
-    errors.push("convert1s: "+(e instanceof Error?e.message:String(e)));
+  for (const tab of data?.contents?.tabbedSearchResultsRenderer?.tabs || []) {
+    for (const section of tab?.tabRenderer?.content?.sectionListRenderer?.contents || []) {
+      for (const item of section?.musicShelfRenderer?.contents || []) {
+        const renderer = item?.musicResponsiveListItemRenderer;
+        if (!renderer) continue;
+
+        const videoId = renderer?.playlistItemData?.videoId;
+        const texts = (renderer.flexColumns || [])
+          .map((column: any) =>
+            (column?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [])
+              .map((run: any) => run.text)
+              .join("")
+              .trim(),
+          )
+          .filter(Boolean);
+
+        if (videoId && texts[0]) {
+          results.push({
+            videoId,
+            title: texts[0],
+            subtitle: texts[1] || "",
+          });
+        }
+      }
+    }
   }
 
-  try{
-    const url=await ytmp3Mobi(videoId);
-    return await fetchDownload(url,"https://ytmp3.mobi/");
-  }catch(e){
-    errors.push("ytmp3.mobi: "+(e instanceof Error?e.message:String(e)));
+  return results;
+}
+
+async function downloadBinary(
+  url: string,
+  referer: string,
+): Promise<{ buffer: Buffer; mime: string }> {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": UA,
+      Accept: "*/*",
+      Referer: referer,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Audio HTTP " + response.status);
   }
 
-  throw new Error("Semua downloader YouTube gagal: "+errors.join(" | "));
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    mime: String(
+      response.headers.get("content-type") || "audio/mpeg",
+    ).split(";")[0],
+  };
 }
-export async function resolveSpotifyTrack(token:string,index:number){
-  const s=get(token),t=s.tracks[index];
-  if(!t)throw new Error("Track tidak ditemukan");
-  if(!t.audioUrl){
-    const r=await ytmSearch(t.title+" "+t.artist);
-    if(!r.length)throw new Error("Lagu tidak ditemukan");
-    t.audioUrl="youtube://"+r[0].videoId;
+
+async function y2mateGet(videoId: string): Promise<{ buffer: Buffer; mime: string }> {
+  const headers = {
+    "Origin": "https://y2mate.gs",
+    "Referer": "https://y2mate.gs/",
+    "Accept": "application/json, text/plain, */*",
+    "User-Agent": UA,
+  };
+
+  const auth = await requestJson(
+    Y2MATE_API + "/api/v1/auth?api_key=" + Y2MATE_KEY + "&_=" + Date.now(),
+    { headers },
+    20000,
+  );
+
+  if (!auth?.key) throw new Error("y2mate auth gagal");
+
+  const init = await requestJson(
+    Y2MATE_API + "/api/v1/init?_=" + Date.now(),
+    {
+      headers: {
+        ...headers,
+        Authorization: "Bearer " + auth.key,
+      },
+    },
+    20000,
+  );
+
+  if (!init?.convertURL) throw new Error("y2mate init gagal");
+
+  let convertUrl = String(init.convertURL);
+  let progressUrl: string | null = null;
+
+  for (let i = 0; i < 12; i++) {
+    const url = new URL(convertUrl);
+    url.searchParams.set("v", videoId);
+    url.searchParams.set("f", "mp3");
+    url.searchParams.set("_", String(Date.now()));
+
+    const data = await requestJson(
+      url.toString(),
+      {
+        headers: {
+          ...headers,
+          Authorization: "Bearer " + auth.key,
+        },
+      },
+      20000,
+    );
+
+    if (data?.downloadURL) {
+      return downloadBinary(String(data.downloadURL), "https://y2mate.gs/");
+    }
+
+    if (data?.progressURL) {
+      progressUrl = String(data.progressURL);
+    }
+
+    if (data?.redirectURL) {
+      convertUrl = String(data.redirectURL);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      continue;
+    }
+
+    break;
   }
-  return t;
-}
-async function audio(token:string,index:number){
-  const s=get(token);
-  const cached=s.audioBuffers.get(index);
-  if(cached)return{track:s.tracks[index]!,buffer:cached,mime:s.audioMimes.get(index)||"audio/mpeg"};
 
-  const t=await resolveSpotifyTrack(token,index);
-  let buffer:Buffer;
+  if (progressUrl) {
+    for (let i = 0; i < 20; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
-  if(t.audioUrl?.startsWith("youtube://")){
-    const videoId=t.audioUrl.slice("youtube://".length);
-    const y=await youtubeAudio(videoId);
-    buffer=y.buffer;
-    s.audioMimes.set(index,y.mime);
-  }else{
-    const r=await fetch(t.audioUrl!,{headers:{"User-Agent":UA,"Referer":"https://y2mate.gs/"}});
-    if(!r.ok)throw new Error("Audio gagal diambil");
-    buffer=Buffer.from(await r.arrayBuffer());
-    s.audioMimes.set(index,String(r.headers.get("content-type")||"audio/mpeg").split(";")[0]);
+      const data = await requestJson(
+        progressUrl,
+        { headers },
+        20000,
+      );
+
+      if (data?.downloadURL) {
+        return downloadBinary(String(data.downloadURL), "https://y2mate.gs/");
+      }
+
+      if (data?.redirectURL) {
+        const redirect = await requestJson(
+          String(data.redirectURL),
+          { headers },
+          20000,
+        );
+        if (redirect?.downloadURL) {
+          return downloadBinary(
+            String(redirect.downloadURL),
+            "https://y2mate.gs/",
+          );
+        }
+        if (redirect?.progressURL) {
+          progressUrl = String(redirect.progressURL);
+        }
+      }
+    }
   }
 
-  if(!s.audioMimes.has(index))s.audioMimes.set(index,"audio/mpeg");
-  s.audioBuffers.set(index,buffer);
-  return{track:t,buffer,mime:s.audioMimes.get(index)||"audio/mpeg"};
+  throw new Error("y2mate audio tidak tersedia");
 }
-export async function getSpotifyAudio(token:string,index:number){return audio(token,index)}
-export async function sendSpotifyTrack(token:string,index:number){const s=get(token),{track,buffer}=await audio(token,index);const media=new MessageMedia("audio/mpeg",buffer.toString("base64"),track.title.replace(/[<>:"/\\|?*\x00-\x1F]/g," ").slice(0,120)+".mp3");await s.client.sendMessage(s.chatId,media);return{title:track.title}}
-setInterval(()=>{const c=Date.now()-SESSION_TTL;for(const [k,v] of sessions)if(v.createdAt<c)sessions.delete(k)},60000).unref();
+
+async function fallbackDownloader(
+  videoId: string,
+): Promise<{ buffer: Buffer; mime: string }> {
+  const videoUrl = "https://www.youtube.com/watch?v=" + videoId;
+  const errors: string[] = [];
+
+  const methods = [
+    async () => {
+      const data = await requestJson(
+        "https://api.nekolabs.my.id/downloader/youtube/v1?url=" +
+          encodeURIComponent(videoUrl) +
+          "&format=mp3",
+        {},
+        45000,
+      );
+      if (!data?.success || !data?.result?.downloadUrl) {
+        throw new Error("NekoLabs URL kosong");
+      }
+      return downloadBinary(
+        String(data.result.downloadUrl),
+        "https://api.nekolabs.my.id/",
+      );
+    },
+    async () => {
+      const data = await requestJson(
+        "https://ytdlpyton.nvlgroup.my.id/download/audio?url=" +
+          encodeURIComponent(videoUrl) +
+          "&mode=url",
+        {},
+        45000,
+      );
+      if (!data?.download_url) throw new Error("YTDLPyton URL kosong");
+      return downloadBinary(
+        String(data.download_url),
+        "https://ytdlpyton.nvlgroup.my.id/",
+      );
+    },
+    async () => {
+      const data = await requestJson(
+        "https://anabot.my.id/api/download/ytmp4?url=" +
+          encodeURIComponent(videoUrl) +
+          "&quality=720p&apikey=freeApikey",
+        {},
+        45000,
+      );
+      const value = data?.data?.result?.urls;
+      const url = Array.isArray(value) ? value[0] : value;
+      if (!url) throw new Error("AnaBot URL kosong");
+      return downloadBinary(String(url), "https://anabot.my.id/");
+    },
+  ];
+
+  for (let index = 0; index < methods.length; index++) {
+    try {
+      return await methods[index]();
+    } catch (error) {
+      errors.push(
+        `v${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  throw new Error("Downloader YouTube gagal: " + errors.join(" | "));
+}
+
+function getSession(token: string): Session {
+  const session = sessions.get(token);
+
+  if (
+    !session ||
+    Date.now() - session.createdAt > SESSION_TTL
+  ) {
+    if (session) sessions.delete(token);
+    throw new Error("Sesi Spotify kedaluwarsa. Buka Spotify lagi.");
+  }
+
+  return session;
+}
+
+export function createSpotifySession(client: Client, chatId: string): string {
+  const token = randomBytes(24).toString("hex");
+
+  sessions.set(token, {
+    client,
+    chatId,
+    createdAt: Date.now(),
+    tracks: [],
+    audioBuffers: new Map(),
+    audioMimes: new Map(),
+  });
+
+  return token;
+}
+
+export async function spotifySearch(token: string, query: string): Promise<Track[]> {
+  const session = getSession(token);
+  const value = query.trim();
+
+  if (!value) throw new Error("Query kosong");
+
+  session.tracks = (
+    /^https?:\/\/open\.spotify\.com\//i.test(value)
+      ? await infoSpotify(value.split("?")[0])
+      : await searchSpotify(value)
+  ).slice(0, 12);
+
+  return session.tracks.map(({ audioUrl, ...track }) => track);
+}
+
+export function getSpotifyTrack(token: string, index: number): Track {
+  const session = getSession(token);
+  const track = session.tracks[index];
+
+  if (!track) throw new Error("Track tidak ditemukan");
+
+  return track;
+}
+
+export async function resolveSpotifyTrack(
+  token: string,
+  index: number,
+): Promise<Track> {
+  const session = getSession(token);
+  const track = session.tracks[index];
+
+  if (!track) throw new Error("Track tidak ditemukan");
+
+  if (!track.audioUrl) {
+    const results = await ytmSearch(track.title + " " + track.artist);
+
+    if (!results.length) {
+      throw new Error("Lagu tidak ditemukan di YouTube Music");
+    }
+
+    const videoId = results[0].videoId;
+
+    try {
+      const y2mate = await y2mateGet(videoId);
+      // Simpan URL virtual untuk menandai bahwa file sudah diproses.
+      // Buffer tetap di-cache pada audio().
+      track.audioUrl = "cached-y2mate://" + videoId;
+      session.audioBuffers.set(index, y2mate.buffer);
+      session.audioMimes.set(index, y2mate.mime);
+    } catch {
+      track.audioUrl = "youtube://" + videoId;
+    }
+  }
+
+  return track;
+}
+
+async function getAudio(
+  token: string,
+  index: number,
+): Promise<{ track: Track; buffer: Buffer; mime: string }> {
+  const session = getSession(token);
+
+  const cached = session.audioBuffers.get(index);
+  if (cached) {
+    return {
+      track: session.tracks[index]!,
+      buffer: cached,
+      mime: session.audioMimes.get(index) || "audio/mpeg",
+    };
+  }
+
+  const track = await resolveSpotifyTrack(token, index);
+
+  if (track.audioUrl?.startsWith("cached-y2mate://")) {
+    const cachedBuffer = session.audioBuffers.get(index);
+    if (!cachedBuffer) throw new Error("Audio cache tidak ditemukan");
+
+    return {
+      track,
+      buffer: cachedBuffer,
+      mime: session.audioMimes.get(index) || "audio/mpeg",
+    };
+  }
+
+  const videoId = track.audioUrl?.startsWith("youtube://")
+    ? track.audioUrl.slice("youtube://".length)
+    : "";
+
+  if (!videoId) throw new Error("Sumber audio tidak valid");
+
+  const audio = await fallbackDownloader(videoId);
+  session.audioBuffers.set(index, audio.buffer);
+  session.audioMimes.set(index, audio.mime);
+
+  return {
+    track,
+    buffer: audio.buffer,
+    mime: audio.mime,
+  };
+}
+
+export async function getSpotifyAudio(
+  token: string,
+  index: number,
+): Promise<{ track: Track; buffer: Buffer; mime: string }> {
+  return getAudio(token, index);
+}
+
+export async function sendSpotifyTrack(
+  token: string,
+  index: number,
+): Promise<{ title: string }> {
+  const session = getSession(token);
+  const { track, buffer, mime } = await getAudio(token, index);
+
+  const extension = mime.includes("mp4") ? "m4a" : "mp3";
+  const filename =
+    track.title
+      .replace(/[<>:"/\\|?*\\x00-\\x1F]/g, " ")
+      .trim()
+      .slice(0, 120) || "Spotify";
+
+  const media = new MessageMedia(
+    mime,
+    buffer.toString("base64"),
+    filename + "." + extension,
+  );
+
+  await session.client.sendMessage(session.chatId, media);
+  return { title: track.title };
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - SESSION_TTL;
+
+  for (const [token, session] of sessions) {
+    if (session.createdAt < cutoff) {
+      sessions.delete(token);
+    }
+  }
+}, 60000).unref();
