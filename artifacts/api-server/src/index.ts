@@ -70,9 +70,14 @@ app.post("/api/spotify-live/room/:code/join", (req, res) => {
   const playerName = String(req.body?.name || "");
   if (!room || !playerId) return res.status(404).json({ error: "ROOM_NOT_FOUND" });
   const member = touchSpotifyLiveMember(room, playerId, playerName);
+  const state = roomState(room, playerId);
   return res.json({
-    ...roomState(room, playerId),
-    message: member.id === room.hostId ? "Kamu adalah host." : "Berhasil masuk ke room.",
+    ...state,
+    isHost: room.ownerPlayerId === playerId || state.isHost,
+    message:
+      room.ownerPlayerId === playerId
+        ? "Kamu adalah host."
+        : "Berhasil masuk ke room.",
   });
 });
 
