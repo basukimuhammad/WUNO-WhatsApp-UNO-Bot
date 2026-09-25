@@ -28,11 +28,17 @@ export async function sendRichHtml(
     );
   }
 
-  const wsUrl = origin.replace(/^http/i, origin.startsWith("https") ? "wss" : "ws") + "/ws/games";
+  const wsUrl =
+    origin.replace(/^http/i, origin.startsWith("https") ? "wss" : "ws") +
+    "/ws/games";
   const room = encodeURIComponent(roomIdOverride || chat.message.from);
   const player = encodeURIComponent(chat.message.userNumber);
-  const name = encodeURIComponent(chat.message.userName || chat.message.userNumber);
-  const gameUrl = `${wsUrl}?game=${encodeURIComponent(game)}&room=${room}&player=${player}&name=${name}`;
+  const name = encodeURIComponent(
+    chat.message.userName || chat.message.userNumber,
+  );
+  // The reference Spotify Live HTML reads roomId/playerId/playerName.
+  const gameUrl =
+    "${wsUrl}?game=${encodeURIComponent(game)}&roomId=${room}&playerId=${player}&playerName=${name}";
   const preparedHtml = html.replaceAll("__WUNO_WS_URL__", gameUrl);
 
   const rich = new AIRich(sock)
