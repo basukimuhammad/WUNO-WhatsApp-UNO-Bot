@@ -1,4 +1,5 @@
 type SpotifyHtmlTrack = {
+  id: string;
   title: string;
   artist: string;
   album: string;
@@ -26,12 +27,10 @@ export function buildSpotifyPlayerHtml(
     return '<!doctype html><html><body style="font-family:Arial;text-align:center;padding:30px">🎵 Lagu tidak ditemukan.</body></html>';
   }
 
-  const tokenQ = encodeURIComponent(token);
   const origin = "__WUNO_API_ORIGIN__";
-  const streamUrl = origin + "/api/spotify/stream?token=" + tokenQ + "&index=0";
-  const coverUrl = origin + "/api/spotify/cover?token=" + tokenQ + "&index=0";
-  const sendUrl = origin + "/api/spotify/download?token=" + tokenQ + "&index=0";
-  const previewUrl = origin + "/api/spotify/preview?token=" + tokenQ + "&index=0";
+  const id = encodeURIComponent(t.id);
+  const streamUrl = origin + "/api/spotify/stream?id=" + id;
+  const coverUrl = origin + "/api/spotify/cover?id=" + id;
 
   return "<!doctype html>" +
     '<html lang="id"><head>' +
@@ -47,20 +46,16 @@ export function buildSpotifyPlayerHtml(
     '.cover{width:100%;aspect-ratio:1;display:block;object-fit:cover;border-radius:14px;background:#242424}' +
     '.meta{text-align:center;padding:12px 4px}.title{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{font-size:12px;color:#aaa;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     'audio{width:100%;margin-top:8px}' +
-    '.download{display:block;width:max-content;margin:14px auto 0;padding:11px 24px;border-radius:12px;background:#fff;color:#000;text-decoration:none;font-weight:900}' +
     '.info{text-align:center;color:#777;font-size:10px;margin-top:10px}' +
     '</style></head><body>' +
     '<div class="wrap"><div class="card">' +
     '<div class="brand">♫ SPOTIFY</div>' +
     '<div class="query">Hasil untuk: ' + esc(query) + '</div>' +
     '<img class="cover" src="' + coverUrl + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
-    '<div class="meta">' +
-    '<div class="title">' + esc(t.title) + '</div>' +
-    '<div class="artist">' + esc(t.artist || "Unknown Artist") +
-    (t.album ? " • " + esc(t.album) : "") + '</div></div>' +
-    '<audio controls preload="metadata" src="' + previewUrl + '"></audio>' +
-    '<a class="download" href="' + sendUrl + '" target="_blank" rel="noopener">Download MP3</a>' +
-    '<div class="info">SpotSaver • Audio via YouTube Music / Y2Mate</div>' +
+    '<div class="meta"><div class="title">' + esc(t.title) + '</div>' +
+    '<div class="artist">' + esc(t.artist || "Unknown Artist") + (t.album ? " • " + esc(t.album) : "") + '</div></div>' +
+    '<audio controls preload="metadata" src="' + streamUrl + '"></audio>' +
+    '<div class="info">SpotSaver • Audio langsung dari previewUrl</div>' +
     '</div></div></body></html>';
 }
 
