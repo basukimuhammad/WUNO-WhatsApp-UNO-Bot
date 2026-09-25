@@ -19,6 +19,7 @@ export interface SpotifyLiveRoom {
   code: string;
   ownerChatId: string;
   hostId: string | null;
+  ownerPlayerId: string;
   members: Map<string, SpotifyLiveMember>;
   current: SpotifyLiveTrack | null;
   isPlaying: boolean;
@@ -40,7 +41,10 @@ function makeCode() {
   return code;
 }
 
-export function createOrGetSpotifyLiveRoom(ownerChatId: string) {
+export function createOrGetSpotifyLiveRoom(
+  ownerChatId: string,
+  ownerPlayerId = "",
+) {
   const oldCode = roomByChat.get(ownerChatId);
   if (oldCode) {
     const old = rooms.get(oldCode);
@@ -54,7 +58,8 @@ export function createOrGetSpotifyLiveRoom(ownerChatId: string) {
   const room: SpotifyLiveRoom = {
     code,
     ownerChatId,
-    hostId: null,
+    hostId: ownerPlayerId || null,
+    ownerPlayerId,
     members: new Map(),
     current: null,
     isPlaying: false,
@@ -69,7 +74,9 @@ export function createOrGetSpotifyLiveRoom(ownerChatId: string) {
   return room;
 }
 
-export function getOrCreateSpotifyLiveRoom(ownerChatId: string) { return createOrGetSpotifyLiveRoom(ownerChatId); }
+export function getOrCreateSpotifyLiveRoom(ownerChatId: string, ownerPlayerId = "") {
+  return createOrGetSpotifyLiveRoom(ownerChatId, ownerPlayerId);
+}
 
 export function getSpotifyLiveRoom(code: string) {
   return rooms.get(code.trim().toUpperCase());
