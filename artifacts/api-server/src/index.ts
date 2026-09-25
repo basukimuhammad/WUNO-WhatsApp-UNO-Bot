@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import yts from "yt-search";
 import ytdl from "ytdl-core";
-import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
+import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
 
@@ -54,6 +54,62 @@ app.get("/api/spotify-live/stream/:videoId", async (req, res) => {
     res.status(500).end();
   }
 });
+
+app.get("/api/spotify-live/room/:code", (req, res) => {
+  const room = getSpotifyLiveRoom(String(req.params.code || ""));
+  const playerId = String(req.query.playerId || "");
+  const playerName = String(req.query.playerName || "");
+  if (!room || !playerId) return res.status(404).json({ error: "ROOM_NOT_FOUND" });
+  touchSpotifyLiveMember(room, playerId, playerName);
+  return res.json(roomState(room, playerId));
+});
+
+app.post("/api/spotify-live/room/:code/join", (req, res) => {
+  const room = getSpotifyLiveRoom(String(req.params.code || ""));
+  const playerId = String(req.body?.playerId || "");
+  const playerName = String(req.body?.name || "");
+  if (!room || !playerId) return res.status(404).json({ error: "ROOM_NOT_FOUND" });
+  const member = touchSpotifyLiveMember(room, playerId, playerName);
+  return res.json({
+    ...roomState(room, playerId),
+    message: member.id === room.hostId ? "Kamu adalah host." : "Berhasil masuk ke room.",
+  });
+});
+
+app.post("/api/spotify-live/room/:code/event", (req, res) => {
+  const room = getSpotifyLiveRoom(String(req.params.code || ""));
+  const playerId = String(req.body?.playerId || "");
+  const type = String(req.body?.type || "");
+  if (!room || !playerId) return res.status(404).json({ error: "ROOM_NOT_FOUND" });
+
+  touchSpotifyLiveMember(room, playerId, String(req.body?.name || ""));
+
+  if (!spotifyLiveRoomIsHost(room, playerId) && type !== "room-chat") {
+    return res.status(403).json({ error: "NOT_HOST" });
+  }
+
+  if (type === "play-track" && req.body?.track?.videoId) {
+    setSpotifyLiveTrack(room, {
+      videoId: String(req.body.track.videoId),
+      title: String(req.body.track.title || ""),
+      artist: String(req.body.track.artist || ""),
+      thumbnail: String(req.body.track.thumbnail || ""),
+      duration: String(req.body.track.duration || ""),
+    });
+  } else if (type === "toggle-play") {
+    toggleSpotifyLive(room, Boolean(req.body.isPlaying), Number(req.body.position || 0));
+  } else if (type === "sync-tick") {
+    syncSpotifyLive(room, Number(req.body.position || 0));
+  } else if (type === "room-chat") {
+    addSpotifyLiveChat(room, playerId, String(req.body.text || ""));
+  } else {
+    return res.status(400).json({ error: "UNKNOWN_EVENT" });
+  }
+
+  return res.json(roomState(room, playerId));
+});
+
+
 
 const rooms = new Map<string, Room>();
 
