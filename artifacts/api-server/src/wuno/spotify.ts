@@ -18,6 +18,7 @@ type Track = {
   duration: string;
   thumbnail: string | null;
   spotifyUrl: string | null;
+  previewUrl: string | null;
   audioUrl?: string | null;
 };
 
@@ -87,6 +88,7 @@ function normalizeTrack(value: any): Track {
     spotifyUrl: value?.id
       ? "https://open.spotify.com/track/" + value.id
       : null,
+    previewUrl: value?.previewUrl || null,
     audioUrl: null,
   };
 }
