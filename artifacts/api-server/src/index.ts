@@ -75,6 +75,7 @@ app.get("/api/spotify/proxy", async (req, res) => {
   }
 
   if (!(await isSafeProxyHost(target.hostname))) {
+    logger.warn({ host: target.hostname }, "[SPOTIFY-PROXY] Host ditolak");
     return res.status(403).type("text/plain").send("host tidak diizinkan");
   }
 
@@ -117,9 +118,47 @@ app.get("/api/spotify/proxy", async (req, res) => {
       return res.status(502).type("text/plain").send("Upstream HTTP " + upstream.status);
     }
 
-    const contentType =
-      (upstream.headers.get("content-type") || "").split(";")[0] ||
-      (/[?&]f=mp3(?:&|$)/i.test(rawUrl) ? "audio/mpeg" : "application/octet-stream");
+    const upstreamType = (upstream.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    const cleanUrl = rawUrl.toLowerCase().split("?")[0];
+    let contentType = upstreamType;
+
+    if (
+      !contentType ||
+      contentType === "application/octet-stream" ||
+      contentType === "binary/octet-stream" ||
+      contentType === "text/plain"
+    ) {
+      if (/\\.mp3$/.test(cleanUrl) || /[?&]f=mp3(?:&|$)/i.test(rawUrl)) {
+        contentType = "audio/mpeg";
+      } else if (/\\.(m4a|mp4a)$/.test(cleanUrl)) {
+        contentType = "audio/mp4";
+      } else if (/\\.ogg$/.test(cleanUrl)) {
+        contentType = "audio/ogg";
+      } else if (/\\.(png)$/.test(cleanUrl)) {
+        contentType = "image/png";
+      } else if (/\\.(jpe?g)$/.test(cleanUrl)) {
+        contentType = "image/jpeg";
+      } else if (/\\.webp$/.test(cleanUrl)) {
+        contentType = "image/webp";
+      } else if (/\\.gif$/.test(cleanUrl)) {
+        contentType = "image/gif";
+      } else if (/\\.svg$/.test(cleanUrl)) {
+        contentType = "image/svg+xml";
+      } else {
+        contentType = "application/octet-stream";
+      }
+    }
+
+    logger.info({
+      host: target.hostname,
+      status: upstream.status,
+      contentType,
+      length: upstream.headers.get("content-length"),
+      range: upstream.headers.get("content-range") || null,
+    }, "[SPOTIFY-PROXY] Upstream");
 
     res.status(upstream.status === 206 ? 206 : 200);
     res.setHeader("Content-Type", contentType);
@@ -160,20 +199,13 @@ app.get("/api/spotify/cover", async (req, res) => {
     const track = getSpotifyTrackById(id);
     if (!track.thumbnail) return res.status(404).end();
 
-    const target = new URL("/api/spotify/proxy", "http://localhost");
-    target.searchParams.set("url", track.thumbnail);
-    target.searchParams.set("ref", "https://open.spotify.com/");
-
-    const upstream = await fetch(
-      "http://" + String(req.headers.host || "localhost") + target.pathname + target.search,
+    return res.redirect(
+      302,
+      "/api/spotify/proxy?url=" +
+        encodeURIComponent(track.thumbnail) +
+        "&ref=" +
+        encodeURIComponent("https://open.spotify.com/"),
     );
-
-    res.status(upstream.status);
-    const contentType = upstream.headers.get("content-type");
-    if (contentType) res.setHeader("Content-Type", contentType);
-    const { Readable } = await import("node:stream");
-    if (upstream.body) return Readable.fromWeb(upstream.body as any).pipe(res);
-    return res.end();
   } catch (error) {
     logger.error({ err: error }, "[SPOTIFY] Thumbnail gagal");
     return res.status(404).end();
