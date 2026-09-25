@@ -16,7 +16,17 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/games" });
 
 // --- Spotify biasa ---
-app.get("/api/spotify/search", async (req,res)=>{try{const results=await spotifySearch(String(req.query.token||""),String(req.query.q||""));res.json({results})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Search gagal"})}});
+app.get("/api/spotify/search", async (req,res)=>{
+  try{
+    const token=String(req.query.token||"");
+    const q=String(req.query.q||"");
+    const results=await spotifySearch(token,q);
+    res.json({results});
+  }catch(e){
+    logger.error({err:e,q:String(req.query.q||"")},"[SPOTIFY] Search endpoint gagal");
+    res.status(400).json({error:e instanceof Error?e.message:"Search gagal"});
+  }
+});
 app.get("/api/spotify/resolve", async (req,res)=>{try{const track=await resolveSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({track:{...track,audioUrl:null}})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Resolve gagal"})}});
 app.get("/api/spotify/stream", async (req,res)=>{try{const {track,buffer}=await getSpotifyAudio(String(req.query.token||""),Number(req.query.index));res.setHeader("Content-Type","audio/mpeg");res.setHeader("Content-Length",String(buffer.length));res.setHeader("Cache-Control","no-store");res.send(buffer)}catch{res.status(400).end()}});
 app.post("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({success:true,...result})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Gagal mengirim audio"})}});
