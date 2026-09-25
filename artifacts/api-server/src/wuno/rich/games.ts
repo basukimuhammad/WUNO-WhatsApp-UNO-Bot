@@ -43,7 +43,7 @@ h1{margin:0 0 6px;font-size:24px}.muted{color:#9ca6b5;font-size:13px}.room{font-
 </div>
 <script>
 const WS_URL="__WUNO_WS_URL__";const qs=new URLSearchParams(location.search);const audio=document.getElementById("audio");let ws=null,host=false,current=null,isPlaying=false;
-document.getElementById("room").textContent=(qs.get("code")||qs.get("room")||"------").toUpperCase();
+try{const u=new URL(WS_URL);document.getElementById("room").textContent=decodeURIComponent(u.searchParams.get("room")||"------").toUpperCase()}catch{}
 function setStatus(x){document.getElementById("status").textContent=x}
 function send(x){if(ws&&ws.readyState===1)ws.send(JSON.stringify(x))}
 function connect(){ws=new WebSocket(WS_URL);ws.onopen=()=>{send({type:"join",game:"spotifylive",room:qs.get("room"),player:qs.get("player"),name:qs.get("name")});setStatus("Terhubung • tunggu musik")};ws.onclose=()=>setStatus("Koneksi terputus. Buka ulang room untuk menyambung.") ;ws.onmessage=e=>{try{state(JSON.parse(e.data))}catch{}}}
