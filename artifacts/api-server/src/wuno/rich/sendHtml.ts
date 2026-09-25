@@ -38,8 +38,10 @@ export async function sendRichHtml(
   );
   // The reference Spotify Live HTML reads roomId/playerId/playerName.
   const gameUrl =
-    "${wsUrl}?game=${encodeURIComponent(game)}&roomId=${room}&playerId=${player}&playerName=${name}";
-  const preparedHtml = html.replaceAll("__WUNO_WS_URL__", gameUrl);
+    `${wsUrl}?game=${encodeURIComponent(game)}&roomId=${room}&playerId=${player}&playerName=${name}`;
+  const preparedHtml = html
+    .replaceAll("__WUNO_WS_URL__", gameUrl)
+    .replaceAll("__WUNO_API_ORIGIN__", origin);
 
   const rich = new AIRich(sock)
     .setTitle(title)
