@@ -4,7 +4,7 @@ import yts from "yt-search";
 import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
-import { logger } from "./lib/logger";
+import { logger } from "./lib/logger";\nimport { getSpotifyAudio, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -13,6 +13,13 @@ if (Number.isNaN(port) || port <= 0) throw new Error(`Invalid PORT value: "${raw
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/games" });
+
+// --- Spotify biasa ---
+app.get("/api/spotify/search", async (req,res)=>{try{const results=await spotifySearch(String(req.query.token||""),String(req.query.q||""));res.json({results})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Search gagal"})}});
+app.get("/api/spotify/resolve", async (req,res)=>{try{const track=await resolveSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({track:{...track,audioUrl:null}})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Resolve gagal"})}});
+app.get("/api/spotify/stream", async (req,res)=>{try{const {track,buffer}=await getSpotifyAudio(String(req.query.token||""),Number(req.query.index));res.setHeader("Content-Type","audio/mpeg");res.setHeader("Content-Length",String(buffer.length));res.setHeader("Cache-Control","no-store");res.send(buffer)}catch{res.status(400).end()}});
+app.post("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({success:true,...result})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Gagal mengirim audio"})}});
+
 
 type Player = { id: string; name: string; ws: WebSocket; mark: "X"|"O"|"1"|"2" };
 type Room = { game: string; players: Player[]; board: string[]; turn: string; winner: string };
