@@ -6,8 +6,21 @@ function getPublicOrigin() {
   const explicit = process.env.PUBLIC_GAME_ORIGIN?.trim();
   if (explicit) return explicit.replace(/\/$/, "");
 
-  const domain = process.env.REPLIT_DEV_DOMAIN?.trim();
-  if (domain) return `https://${domain}`;
+  const domains = process.env.REPLIT_DOMAINS?.trim();
+  if (domains) {
+    const domain = domains
+      .split(",")
+      .map((value) => value.trim())
+      .find(Boolean);
+    if (domain) {
+      return domain.startsWith("http")
+        ? domain.replace(/\/$/, "")
+        : `https://${domain}`;
+    }
+  }
+
+  const devDomain = process.env.REPLIT_DEV_DOMAIN?.trim();
+  if (devDomain) return `https://${devDomain}`;
 
   return "";
 }
@@ -25,7 +38,7 @@ export async function sendRichHtml(
 
   if (!origin) {
     throw new Error(
-      "REPLIT_DEV_DOMAIN/PUBLIC_GAME_ORIGIN tidak tersedia untuk WebSocket game.",
+      "PUBLIC_GAME_ORIGIN/REPLIT_DOMAINS/REPLIT_DEV_DOMAIN tidak tersedia.",
     );
   }
 
