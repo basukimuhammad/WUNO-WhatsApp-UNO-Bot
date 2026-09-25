@@ -22,3 +22,35 @@ function np(){p=S[Math.random()*S.length|0].map(r=>[...r]);x=(W-p[0].length)/2|0
 </script></body></html>`;
 
 export const SPOTIFY_HTML = String.raw`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#07090d;color:#fff;font-family:system-ui;padding:16px}.card{max-width:500px;margin:auto;background:#11151d;border-radius:18px;padding:18px}input{width:100%;padding:13px;box-sizing:border-box;background:#090c12;color:#fff;border:1px solid #303746;border-radius:12px;margin:10px 0}button{padding:12px;border:0;border-radius:10px;background:#7357ff;color:#fff;font-weight:800}</style></head><body><div class="card"><h1>🎵 WUNO Spotify</h1><p>Cari lagu langsung dari sini.</p><input id="q" placeholder="Nama lagu / artis"><button onclick="go()">Cari di Spotify</button></div><script>function go(){let q=document.getElementById("q").value.trim();if(q)location.href="https://open.spotify.com/search/"+encodeURIComponent(q)}</script></body></html>`;
+
+export const SPOTIFY_LIVE_HTML = String.raw`<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WUNO Spotify Live</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f7f8fb;font-family:system-ui,sans-serif;padding:14px}.app{max-width:560px;margin:auto}
+.card{background:#11151d;border:1px solid #262d38;border-radius:20px;padding:18px;margin-bottom:12px}
+h1{margin:0 0 6px;font-size:24px}.muted{color:#9ca6b5;font-size:13px}.room{font-size:30px;letter-spacing:7px;font-weight:900;text-align:center;margin:12px 0;color:#6ee7a2}
+.now{display:grid;grid-template-columns:92px 1fr;gap:14px;align-items:center}.cover{width:92px;height:92px;border-radius:15px;object-fit:cover;background:#1ed760}
+.title{font-weight:850;font-size:17px}.artist{color:#9ca6b5;margin-top:4px}.controls{display:flex;gap:9px;align-items:center;margin-top:15px}.btn{border:0;border-radius:12px;padding:12px 15px;background:#1ed760;color:#07110d;font-weight:900}.btn.alt{background:#242b36;color:#fff}
+.search{display:flex;gap:8px;margin-top:12px}.search input{flex:1;min-width:0;padding:12px;border-radius:12px;border:1px solid #303746;background:#090c12;color:#fff}.results{margin-top:10px;display:grid;gap:5px}
+.result{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;padding:8px;border-radius:12px;background:#0d1118}.result img{width:48px;height:48px;border-radius:8px;object-fit:cover}.result b{font-size:13px}.result small{color:#9ca6b5}.result button{border:0;border-radius:10px;padding:9px;background:#252d3a;color:#fff;font-weight:800}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#18241d;color:#6ee7a2;font-size:12px;font-weight:800}.listeners{text-align:center;color:#9ca6b5;font-size:13px;margin-top:10px}
+</style></head><body><div class="app">
+<div class="card"><div class="badge" id="role">Menghubungkan...</div><h1>🎧 Spotify Live</h1><div class="muted">Satu lagu diputar bareng dalam satu room.</div><div class="room" id="room">------</div><div class="muted" style="text-align:center">Bagikan room ini. Teman yang masuk akan mendengar lagu yang sama.</div></div>
+<div class="card"><div class="now"><img id="cover" class="cover" alt=""><div><div id="title" class="title">Belum ada lagu</div><div id="artist" class="artist">Host pilih lagu untuk mulai.</div></div></div><div class="controls"><button id="play" class="btn" disabled>▶ Putar</button><span id="listeners" class="listeners">0 pendengar</span></div><audio id="audio" controls style="width:100%;margin-top:12px"></audio></div>
+<div id="host" class="card" hidden><b>Cari lagu</b><div class="search"><input id="q" placeholder="judul lagu atau artis"><button id="search" class="btn">Cari</button></div><div id="results" class="results"></div></div>
+<div class="card"><div class="muted" id="status">Menghubungkan ke room...</div></div>
+</div>
+<script>
+const WS_URL="__WUNO_WS_URL__";const qs=new URLSearchParams(location.search);const audio=document.getElementById("audio");let ws=null,host=false,current=null,isPlaying=false;
+document.getElementById("room").textContent=(qs.get("code")||qs.get("room")||"------").toUpperCase();
+function setStatus(x){document.getElementById("status").textContent=x}
+function send(x){if(ws&&ws.readyState===1)ws.send(JSON.stringify(x))}
+function connect(){ws=new WebSocket(WS_URL);ws.onopen=()=>{send({type:"join",game:"spotifylive",room:qs.get("room"),player:qs.get("player"),name:qs.get("name")});setStatus("Terhubung • tunggu musik")};ws.onclose=()=>setStatus("Koneksi terputus. Buka ulang room untuk menyambung.") ;ws.onmessage=e=>{try{state(JSON.parse(e.data))}catch{}}}
+function state(s){host=!!s.isHost;current=s.current||current;isPlaying=!!s.isPlaying;document.getElementById("role").textContent=host?"HOST • kamu yang memilih lagu":"PENDENGAR";document.getElementById("host").hidden=!host;document.getElementById("listeners").textContent=(s.listenerCount||0)+" pendengar";if(s.message)setStatus(s.message);if(current){document.getElementById("title").textContent=current.title;document.getElementById("artist").textContent=current.artist;document.getElementById("cover").src=current.thumbnail||"";document.getElementById("play").disabled=!host;document.getElementById("play").textContent=isPlaying?"⏸ Jeda":"▶ Putar";const src="/api/spotify-live/stream/"+encodeURIComponent(current.videoId);if(audio.dataset.video!==current.videoId){audio.dataset.video=current.videoId;audio.src=src}if(isPlaying){const p=Number(s.position||0);if(Math.abs(audio.currentTime-p)>2)audio.currentTime=p;audio.play().catch(()=>{})}else audio.pause()}}
+document.getElementById("play").onclick=()=>{if(!host||!current)return;const next=audio.paused;send({type:"toggle-play",isPlaying:next,position:audio.currentTime})};
+setInterval(()=>{if(host&&current&&!audio.paused)send({type:"sync-tick",position:audio.currentTime})},3000);
+async function search(){const q=document.getElementById("q").value.trim();if(!q)return;const el=document.getElementById("results");el.innerHTML="<div class='muted'>Mencari...</div>";const r=await fetch("/api/spotify-live/search?q="+encodeURIComponent(q));const d=await r.json();el.innerHTML="";(d.results||[]).forEach(t=>{const x=document.createElement("div");x.className="result";x.innerHTML="<img src='"+t.thumbnail+"'><div><b>"+esc(t.title)+"</b><br><small>"+esc(t.artist)+" • "+esc(t.duration||"")+"</small></div><button>Putar</button>";x.querySelector("button").onclick=()=>{send({type:"play-track",track:t});el.innerHTML=""};el.appendChild(x)})}
+function esc(x){const d=document.createElement("div");d.textContent=x||"";return d.innerHTML}
+document.getElementById("search").onclick=search;document.getElementById("q").onkeydown=e=>{if(e.key==="Enter")search()};connect();
+</script></body></html>`;
