@@ -38,6 +38,7 @@ export const emitHandler = (
   messageHandler.on("tictactoe", safeController("tictactoe", controller.tictactoe));
   messageHandler.on("connect4", safeController("connect4", controller.connect4));
   messageHandler.on("spotify", safeController("spotify", controller.spotify));
+  messageHandler.on("spotifylive", safeController("spotifylive", controller.spotifylive));
   messageHandler.on("startgame", safeController("startgame", isDMChat(findOrCreateUser(controller.startgame))));
   messageHandler.on("endgame", safeController("endgame", isDMChat(findOrCreateUser(controller.endgame))));
   messageHandler.on("leavegame", safeController("leavegame", isDMChat(findOrCreateUser(controller.leavegame))));
