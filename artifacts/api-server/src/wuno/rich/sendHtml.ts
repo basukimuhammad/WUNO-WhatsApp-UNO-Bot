@@ -42,7 +42,7 @@ export async function sendRichHtml(
     `${wsUrl}?game=${encodeURIComponent(game)}&roomId=${room}&playerId=${player}&playerName=${name}`;
   const preparedHtml = html
     .replaceAll("__WUNO_WS_URL__", JSON.stringify(gameUrl))
-    .replaceAll("__WUNO_API_ORIGIN__", JSON.stringify(origin))
+    .replaceAll("__WUNO_API_ORIGIN__", origin)
     .replaceAll(
       "__WUNO_ROOM_ID__",
       JSON.stringify(roomIdOverride || chat.message.from),
