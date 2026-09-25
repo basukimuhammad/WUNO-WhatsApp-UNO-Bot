@@ -15,7 +15,7 @@ export function buildSpotifyPlayerHtml(
   const safeQuery = JSON.stringify(query);
   const safeTracks = JSON.stringify(tracks.slice(0, 8)).replace(/</g, "\\u003c");
 
-  return String.raw\`<!doctype html>
+  return String.raw`<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -147,7 +147,7 @@ dl.addEventListener("click",async function(){
 });
 render();
 <\/script>
-</body></html>\`;
+</body></html>`;
 }
 
 export const SPOTIFY_PLAYER_HTML = "";
