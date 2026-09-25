@@ -108,12 +108,15 @@ export async function sendRichHtml(
   });
 
   const rich = new AIRich(sock)
-    .setTitle(title);
-
-  rich.addHtml(preparedHtml, {
-    url: origin,
-    trustedSources: trustedHost ? [trustedHost] : [],
-  });
+    .setTitle(title)
+    .addSection(
+      AIRich.newLayout("Single", {
+        __typename: "GenAIaeacdsnwHtmlPrimitive",
+        payload: preparedHtml,
+        trusted_sources: trustedHost ? [trustedHost] : [],
+        url: origin,
+      }),
+    );
 
   console.info("[RICH-HTML] SENDING", {
     to: chat.message.from,
