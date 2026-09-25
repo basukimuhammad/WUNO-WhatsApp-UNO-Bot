@@ -1,4 +1,4 @@
-type SpotifyHtmlTrack = { id: string; title: string; artist: string; album: string; duration: string; thumbnail: string | null; previewUrl: string | null; };
+type SpotifyHtmlTrack = { id: string; title: string; artist: string; album: string; duration: string; thumbnail: string | null; previewUrl: string | null; audioUrl?: string; };
 
 function esc(value: unknown) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -18,31 +18,8 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <div class="query">Hasil untuk: ${esc(query)}</div>
 <img class="cover" id="cover" src="${esc(initialCover)}" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
-<button id="playButton" type="button">▶️ Putar lagu</button>
-<audio id="audio" controls preload="none" style="display:none"></audio>
-<div class="info" id="info">Tekan tombol ▶️ untuk menyiapkan audio</div>
-</div></div>
-<script>
-(function(){
-var audio=document.getElementById("audio"),playButton=document.getElementById("playButton"),cover=document.getElementById("cover"),info=document.getElementById("info"),resolving=false,resolved=false,trackId=${trackId},apiOrigin="__WUNO_API_ORIGIN__";
-function setInfo(t){if(info)info.textContent=t}
-function resolve(){
- if(resolving||resolved)return;
- resolving=true;
- if(playButton){playButton.disabled=true;playButton.textContent="⏳ Menyiapkan...";}
- setInfo("⏳ Menyiapkan audio...");
- var url=apiOrigin+"/api/spotify/stream?id="+encodeURIComponent(trackId);
- audio.src=url;
- audio.style.display="block";
- if(playButton)playButton.style.display="none";
- audio.load();
- resolved=true;
- resolving=false;
- setInfo("▶️ Audio siap diputar");
- audio.play().catch(function(){setInfo("▶️ Audio siap — tekan Play di kontrol audio")});
-}
-if(playButton)playButton.addEventListener("click",resolve);
-})();
+<audio id="audio" controls preload="metadata" src="${esc(t.audioUrl || "")}"></audio>
+<div class="info" id="info">Spotify • audio siap diputar</div>
 </script></body></html>`;
 }
 
