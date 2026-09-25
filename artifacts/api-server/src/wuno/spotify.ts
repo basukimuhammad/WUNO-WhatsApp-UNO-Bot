@@ -118,19 +118,31 @@ export function createSpotifySession(client:Client,chatId:string){const token=ra
 export async function spotifySearch(token:string,q:string){const s=get(token);const v=q.trim();if(!v)throw new Error("Query kosong");s.tracks=(/^https?:\/\/open\.spotify\.com\//i.test(v)?await infoSpotify(v.split("?")[0]):await searchSpotify(v)).slice(0,12);return s.tracks.map(({audioUrl,...x})=>x)}
 export function getSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");return t}
 const ytdlClient = new YtdlCore();
+
 async function ytdlAudio(videoId:string){
   const url="https://www.youtube.com/watch?v="+encodeURIComponent(videoId);
   const info:any=await ytdlClient.getFullInfo(url);
+
   const formats=(info.formats||[]).filter((f:any)=>f.hasAudio&&!f.hasVideo);
-  const format=formats.find((f:any)=>/^audio\/mp4/i.test(f.mimeType||""))
-    || formats.find((f:any)=>/^audio\//i.test(f.mimeType||""))
+  const format=formats.find((f:any)=>/^audio\\/mp4/i.test(f.mimeType||""))
+    || formats.find((f:any)=>/^audio\\//i.test(f.mimeType||""))
+    || formats.find((f:any)=>f.itag===140)
     || formats[0];
-  if(!format)throw new Error("Format audio YouTube tidak tersedia");
-  const stream:any=await ytdlClient.download(url,{format,highWaterMark:1<<24});
-  const chunks:Buffer[]=[];
-  for await(const chunk of stream)chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk));
+
+  if(!format?.url)throw new Error("Format audio YouTube tidak tersedia");
+
+  const response=await fetch(format.url,{
+    headers:{
+      "User-Agent":UA,
+      "Accept":"*/*",
+      "Referer":"https://www.youtube.com/",
+    },
+  });
+
+  if(!response.ok)throw new Error("YouTube audio HTTP "+response.status);
+
   return {
-    buffer:Buffer.concat(chunks),
+    buffer:Buffer.from(await response.arrayBuffer()),
     mime:String(format.mimeType||"audio/mpeg").split(";")[0],
   };
 }
