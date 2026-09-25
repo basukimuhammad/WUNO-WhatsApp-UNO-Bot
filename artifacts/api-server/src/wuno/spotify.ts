@@ -118,40 +118,122 @@ function get(token:string){const s=sessions.get(token);if(!s||Date.now()-s.creat
 export function createSpotifySession(client:Client,chatId:string){const token=randomBytes(24).toString("hex");sessions.set(token,{client,chatId,createdAt:Date.now(),tracks:[],audioBuffers:new Map(),audioMimes:new Map()});return token}
 export async function spotifySearch(token:string,q:string){const s=get(token);const v=q.trim();if(!v)throw new Error("Query kosong");s.tracks=(/^https?:\/\/open\.spotify\.com\//i.test(v)?await infoSpotify(v.split("?")[0]):await searchSpotify(v)).slice(0,12);return s.tracks.map(({audioUrl,...x})=>x)}
 export function getSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");return t}
-async function downloadFromUrl(url:string){
-  const response=await fetch(url,{
+async function fetchDownload(url:string,referer:string){
+  const r=await fetch(url,{
     headers:{
       "User-Agent":UA,
       "Accept":"*/*",
-      "Referer":"https://www.youtube.com/",
+      "Referer":referer,
     },
   });
-  if(!response.ok)throw new Error("Downloader HTTP "+response.status);
-  return {
-    buffer:Buffer.from(await response.arrayBuffer()),
-    mime:String(response.headers.get("content-type")||"audio/mpeg").split(";")[0],
+  if(!r.ok)throw new Error("Downloader HTTP "+r.status);
+  return{
+    buffer:Buffer.from(await r.arrayBuffer()),
+    mime:String(r.headers.get("content-type")||"audio/mpeg").split(";")[0],
   };
 }
 
-async function ytdlAudio(videoId:string){
-  const youtubeUrl="https://www.youtube.com/watch?v="+encodeURIComponent(videoId);
-  const methods=[
-    ["scrapr-ytdl",()=>scraprYoutube.ytmp3(youtubeUrl,"mp3")],
-    ["scrapr-ytdlgg",()=>scraprYoutube.ytmp3gg(youtubeUrl,{format:"mp3"})],
-  ] as const;
+async function convert1s(videoUrl:string){
+  const headers={
+    "User-Agent":UA,
+    "Origin":"https://media.ytmp3.gg",
+    "Referer":"https://media.ytmp3.gg/",
+    "Content-Type":"application/json",
+    "Accept":"application/json, text/plain, */*",
+  };
 
-  const errors:string[]=[];
-  for(const [name,run] of methods){
-    try{
-      const result:any=await run();
-      const url=result?.result?.downloads?.find((x:any)=>x?.url)?.url;
-      if(!result?.status||!url)throw new Error(result?.message||"download URL kosong");
-      const media=await downloadFromUrl(String(url));
-      return {buffer:media.buffer,mime:media.mime};
-    }catch(error){
-      errors.push(name+": "+(error instanceof Error?error.message:String(error)));
+  const initRes=await fetch("https://hub.convert1s.com/api/download",{
+    method:"POST",
+    headers,
+    body:JSON.stringify({
+      url:videoUrl,
+      os:"macos",
+      output:{type:"audio",format:"mp3",quality:""},
+      audio:{bitrate:"128k"},
+    }),
+  });
+  if(!initRes.ok)throw new Error("convert1s HTTP "+initRes.status);
+
+  const init:any=await initRes.json();
+  if(!init?.statusUrl)throw new Error("convert1s tidak memberi statusUrl");
+
+  for(let i=0;i<15;i++){
+    await new Promise(r=>setTimeout(r,1500));
+    const pollRes=await fetch(init.statusUrl,{headers});
+    if(!pollRes.ok)continue;
+    const poll:any=await pollRes.json();
+    if(poll?.status==="completed"&&poll?.downloadUrl){
+      return String(poll.downloadUrl);
+    }
+    if(poll?.status==="error"||poll?.status==="failed")break;
+  }
+  throw new Error("convert1s timeout");
+}
+
+async function ytmp3Mobi(videoId:string){
+  const base={
+    "User-Agent":UA,
+    "Origin":"https://ytmp3.mobi",
+    "Referer":"https://ytmp3.mobi/",
+    "Accept":"application/json, text/plain, */*",
+  };
+
+  const initRes=await fetch("https://a.ymcdn.org/api/v1/init?p=y&23=1llum1n471",{headers:base});
+  if(!initRes.ok)throw new Error("ytmp3.mobi init HTTP "+initRes.status);
+  const init:any=await initRes.json();
+  if(!init?.convertURL)throw new Error("ytmp3.mobi init gagal");
+
+  const convertUrl=new URL(String(init.convertURL));
+  convertUrl.searchParams.set("v",videoId);
+  convertUrl.searchParams.set("f","mp3");
+
+  const convRes=await fetch(convertUrl.toString(),{headers:base});
+  if(!convRes.ok)throw new Error("ytmp3.mobi convert HTTP "+convRes.status);
+  const conv:any=await convRes.json();
+
+  let finalUrl=conv?.downloadURL||null;
+  let progressUrl=conv?.progressURL||null;
+  for(let i=0;i<10&&!finalUrl&&progressUrl;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    const pRes=await fetch(progressUrl,{headers:base});
+    if(!pRes.ok)continue;
+    const p:any=await pRes.json();
+    if(p?.downloadURL)finalUrl=String(p.downloadURL);
+    if(p?.progressURL)progressUrl=String(p.progressURL);
+    if(p?.redirectURL){
+      const rr=new URL(String(p.redirectURL));
+      rr.searchParams.set("v",videoId);
+      rr.searchParams.set("f","mp3");
+      const rrRes=await fetch(rr.toString(),{headers:base});
+      if(rrRes.ok){
+        const rd:any=await rrRes.json();
+        if(rd?.downloadURL)finalUrl=String(rd.downloadURL);
+        if(rd?.progressURL)progressUrl=String(rd.progressURL);
+      }
     }
   }
+  if(!finalUrl)throw new Error("ytmp3.mobi downloadURL tidak ditemukan");
+  return finalUrl.startsWith("//")?"https:"+finalUrl:finalUrl;
+}
+
+async function youtubeAudio(videoId:string){
+  const videoUrl="https://www.youtube.com/watch?v="+videoId;
+  const errors:string[]=[];
+
+  try{
+    const url=await convert1s(videoUrl);
+    return await fetchDownload(url,"https://media.ytmp3.gg/");
+  }catch(e){
+    errors.push("convert1s: "+(e instanceof Error?e.message:String(e)));
+  }
+
+  try{
+    const url=await ytmp3Mobi(videoId);
+    return await fetchDownload(url,"https://ytmp3.mobi/");
+  }catch(e){
+    errors.push("ytmp3.mobi: "+(e instanceof Error?e.message:String(e)));
+  }
+
   throw new Error("Semua downloader YouTube gagal: "+errors.join(" | "));
 }
 export async function resolveSpotifyTrack(token:string,index:number){
@@ -160,7 +242,11 @@ export async function resolveSpotifyTrack(token:string,index:number){
   if(!t.audioUrl){
     const r=await ytmSearch(t.title+" "+t.artist);
     if(!r.length)throw new Error("Lagu tidak ditemukan");
-    t.audioUrl="scrapr://"+r[0].videoId;
+    try{
+      t.audioUrl=await y2mGet(r[0].videoId);
+    }catch{
+      t.audioUrl="youtube://"+r[0].videoId;
+    }
   }
   return t;
 }
@@ -172,10 +258,11 @@ async function audio(token:string,index:number){
   const t=await resolveSpotifyTrack(token,index);
   let buffer:Buffer;
 
-  if(t.audioUrl?.startsWith("scrapr://")){
-    const videoId=t.audioUrl.slice("scrapr://".length);
-    const y=await ytdlAudio(videoId);
-    buffer=y.buffer; s.audioMimes.set(index,y.mime);
+  if(t.audioUrl?.startsWith("youtube://")){
+    const videoId=t.audioUrl.slice("youtube://".length);
+    const y=await youtubeAudio(videoId);
+    buffer=y.buffer;
+    s.audioMimes.set(index,y.mime);
   }else{
     const r=await fetch(t.audioUrl!,{headers:{"User-Agent":UA,"Referer":"https://y2mate.gs/"}});
     if(!r.ok)throw new Error("Audio gagal diambil");
