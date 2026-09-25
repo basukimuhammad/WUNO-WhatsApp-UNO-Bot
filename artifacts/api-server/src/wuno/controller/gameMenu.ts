@@ -11,6 +11,7 @@ Game HTML sekarang dipisah per perintah:
 🔴 U#connect4 — Connect Four 2 pemain
 🐍 U#snake — Snake
 🦖 U#dino — Dino Runner
+🎧 U#spotifylive — Spotify Live (dengerin bareng)
 🎵 U#spotify — Spotify
 
 👥 Game multiplayer bisa dimainkan bersama di grup yang sama.
