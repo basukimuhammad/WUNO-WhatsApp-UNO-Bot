@@ -237,13 +237,14 @@
 <audio id="audio"></audio>
 
 
-<script>
-  const params = new URLSearchParams(window.location.search);
-  const roomId = params.get('roomId') || window.location.pathname.split('/room/')[1];
+<script>  const params = new URLSearchParams(window.location.search);
+  const roomId = params.get('roomId') || '';
   const playerId = params.get('playerId') || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
   const playerName = params.get('playerName') || 'Pendengar';
-  const socket = new WebSocket("__WUNO_WS_URL__");
-  const emit = (type, data = {}) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type, ...data }));
+  const API_ORIGIN = "__WUNO_API_ORIGIN__";
+  const roomBase = API_ORIGIN + '/api/spotify-live/room/' + encodeURIComponent(roomId);
+  const eventUrl = roomBase + '/event';
+  const joinUrl = roomBase + '/join';
   const audio = document.getElementById('audio');
   const disc = document.getElementById('disc');
   const discImg = document.getElementById('discImg');
@@ -262,49 +263,85 @@
 
   let isHost = false;
   let currentTrack = null;
+  let initialized = false;
+  let lastChatSignature = '';
 
-  socket.addEventListener('open', () => {
-    emit('join');
-  });
+  function status(message) {
+    const el = document.getElementById('status');
+    if (el) el.textContent = message;
+  }
 
-  socket.addEventListener('message', event => {
+  async function api(url, options = {}) {
+    const opts = { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options };
+    const res = await fetch(url, opts);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  async function joinRoom() {
+    const state = await api(joinUrl, {
+      method: 'POST',
+      body: JSON.stringify({ playerId, name: playerName }),
+    });
+    renderState(state);
+  }
+
+  async function pollRoom() {
     try {
-      const state = JSON.parse(event.data);
-      if (state.type === 'room-chat') {
-        const row = document.createElement('div');
-        row.style.padding = '4px 0';
-        row.innerHTML = '<strong>' + escapeHtml(state.name) + ':</strong> ' + escapeHtml(state.text);
-        chatMessages.appendChild(row);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        return;
-      }
-      if (state.type === 'sync') {
-        if (!isHost && Math.abs(audio.currentTime - Number(state.position || 0)) > 2) {
-          audio.currentTime = Number(state.position || 0);
-        }
-        return;
-      }
-      isHost = !!state.isHost;
-      updateRole();
-      renderMembers(state.members || []);
-      applyState(state);
-    } catch {}
-  });
+      const state = await api(roomBase + '?playerId=' + encodeURIComponent(playerId) + '&playerName=' + encodeURIComponent(playerName));
+      renderState(state);
+    } catch (error) {
+      status('Koneksi room gagal. Buka ulang kartu untuk mencoba lagi.');
+    }
+  }
 
-  socket.addEventListener('close', () => {
-    setStatus('Koneksi terputus. Buka ulang room untuk menyambung.');
-  });
+  function renderState(state) {
+    initialized = true;
+    isHost = !!state.isHost;
+    updateRole();
+    renderMembers(state.members || []);
+    renderChat(state.chat || []);
+    applyState(state);
+    status(state.message || (isHost ? 'Kamu adalah host.' : 'Terhubung ke room.'));
+  }
+
+  async function emit(type, data = {}) {
+    try {
+      const state = await api(eventUrl, {
+        method: 'POST',
+        body: JSON.stringify({ playerId, name: playerName, type, ...data }),
+      });
+      renderState(state);
+    } catch (error) {
+      status('Aksi gagal. Coba lagi.');
+    }
+  }
+
 
   function renderMembers(members) {
-    const names = members.map((m, i) => (m.isHost ? '👑 ' : '') + escapeHtml(m.name || 'Pendengar'));
+    const names = members.map(m => (m.isHost ? '👑 ' : '') + escapeHtml(m.name || 'Pendengar'));
     membersList.innerHTML = names.length ? names.join(' • ') : 'belum ada anggota';
   }
 
-  function sendChat() {
+  function renderChat(messages) {
+    const signature = messages.map(m => m.id).join(',');
+    if (signature === lastChatSignature) return;
+    lastChatSignature = signature;
+    chatMessages.innerHTML = '';
+    messages.slice(-30).forEach(m => {
+      const row = document.createElement('div');
+      row.style.padding = '4px 0';
+      row.innerHTML = '<strong>' + escapeHtml(m.name) + ':</strong> ' + escapeHtml(m.text);
+      chatMessages.appendChild(row);
+    });
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  async function sendChat() {
     const text = chatInput.value.trim();
     if (!text) return;
-    emit('room-chat', { text });
     chatInput.value = '';
+    await emit('room-chat', { text });
   }
 
   chatSend.addEventListener('click', sendChat);
@@ -320,7 +357,7 @@
     roleBadge.textContent = isHost ? 'kamu host' : 'pendengar';
     roleBadge.classList.toggle('host', isHost);
     hostControls.style.display = isHost ? 'flex' : 'none';
-    playBtn.disabled = !isHost && !currentTrack;
+    playBtn.disabled = !currentTrack;
   }
 
   function applyState(state) {
@@ -361,7 +398,7 @@
   // host ngirim posisi tiap 3 detik biar listener bisa koreksi drift
   setInterval(() => {
     if (isHost && currentTrack && !audio.paused) {
-      emit('sync-tick', { position: audio.currentTime });
+      void emit('sync-tick', { position: audio.currentTime });
     }
   }, 3000);
 
@@ -398,8 +435,40 @@
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+  }  searchBtn.addEventListener('click', doSearch);
+  searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+  async function doSearch() {
+    if (!isHost) return;
+    const q = searchInput.value.trim();
+    if (!q) return;
+    resultsEl.innerHTML = '<div class="section-label">nyari...</div>';
+    try {
+      const res = await fetch(API_ORIGIN + '/api/spotify-live/search?q=' + encodeURIComponent(q));
+      const data = await res.json();
+      resultsEl.innerHTML = '';
+      (data.results || []).forEach(track => {
+        const item = document.createElement('div');
+        item.className = 'result-item';
+        item.innerHTML =
+          '<img src="' + escapeHtml(track.thumbnail) + '">' +
+          '<div><div class="result-title">' + escapeHtml(track.title) + '</div>' +
+          '<div class="result-artist">' + escapeHtml(track.artist) + '</div></div>';
+        item.addEventListener('click', () => {
+          void emit('play-track', { track });
+          resultsEl.innerHTML = '';
+          searchInput.value = '';
+        });
+        resultsEl.appendChild(item);
+      });
+    } catch (error) {
+      resultsEl.innerHTML = '<div class="section-label">gagal mencari lagu</div>';
+    }
   }
-</script>
+
+  joinRoom().catch(() => status('Gagal masuk room.'));
+  setInterval(pollRoom, 2000);
+</script></script>
 
 </body>
 </html>
