@@ -30,6 +30,7 @@ app.get("/api/spotify/search", async (req,res)=>{
 app.get("/api/spotify/resolve", async (req,res)=>{try{const track=await resolveSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({track:{...track,audioUrl:null}})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Resolve gagal"})}});
 app.get("/api/spotify/stream", async (req,res)=>{try{const {track,buffer}=await getSpotifyAudio(String(req.query.token||""),Number(req.query.index));res.setHeader("Content-Type","audio/mpeg");res.setHeader("Content-Length",String(buffer.length));res.setHeader("Cache-Control","no-store");res.send(buffer)}catch{res.status(400).end()}});
 app.post("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({success:true,...result})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Gagal mengirim audio"})}});
+app.get("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.type("text/plain").send("Audio berhasil dikirim ke WhatsApp: "+result.title)}catch(e){res.status(400).type("text/plain").send(e instanceof Error?e.message:"Gagal mengirim audio")}});
 
 
 type Player = { id: string; name: string; ws: WebSocket; mark: "X"|"O"|"1"|"2" };
