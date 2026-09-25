@@ -66,8 +66,8 @@ audio{width:100%;margin-top:8px}
       <div class="title">${esc(t.title)}</div>
       <div class="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div>
     </div>
-    <audio controls preload="metadata" src="${esc(audioUrl)}"></audio>
-    <div class="info">SpotSaver • previewUrl langsung</div>
+    <audio controls preload="none" src="${esc(audioUrl)}"></audio>
+    <div class="info">Spotify • audio disiapkan saat Play</div>
   </div>
 </div>
 </body>
