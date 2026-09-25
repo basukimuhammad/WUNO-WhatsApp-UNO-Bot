@@ -37,7 +37,9 @@
     "qrcode": "^1.5.4",
     "@xbibzlibrary/whatsbibz": "1.4.0",
     "protobufjs": "^7.5.6",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "yt-search": "^2.13.1",
+    "ytdl-core": "^4.11.5"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
