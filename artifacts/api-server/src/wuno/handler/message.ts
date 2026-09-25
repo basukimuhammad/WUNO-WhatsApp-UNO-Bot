@@ -172,6 +172,11 @@ export const messageHandler = async (
       case "spotify":
         emitter.emit("spotify", chat);
         break;
+      case "spotifylive":
+      case "spotify-live":
+      case "sp":
+        emitter.emit("spotifylive", chat);
+        break;
       case "h":
       case "help":
         emitter.emit("help", chat);
