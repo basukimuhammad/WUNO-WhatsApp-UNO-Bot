@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { MessageMedia, type Client } from "whatsapp-web.js";
+import ytdl from "ytdl-core";
 
 const BASE = "https://spotsaver.net";
 const YTM_API = "https://music.youtube.com/youtubei/v1/search";
@@ -116,8 +117,40 @@ function get(token:string){const s=sessions.get(token);if(!s||Date.now()-s.creat
 export function createSpotifySession(client:Client,chatId:string){const token=randomBytes(24).toString("hex");sessions.set(token,{client,chatId,createdAt:Date.now(),tracks:[]});return token}
 export async function spotifySearch(token:string,q:string){const s=get(token);const v=q.trim();if(!v)throw new Error("Query kosong");s.tracks=(/^https?:\/\/open\.spotify\.com\//i.test(v)?await infoSpotify(v.split("?")[0]):await searchSpotify(v)).slice(0,12);return s.tracks.map(({audioUrl,...x})=>x)}
 export function getSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");return t}
-export async function resolveSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");if(!t.audioUrl){const r=await ytmSearch(t.title+" "+t.artist);if(!r.length)throw new Error("Lagu tidak ditemukan");t.audioUrl=await y2mGet(r[0].videoId)}return t}
-async function audio(token:string,index:number){const t=await resolveSpotifyTrack(token,index);const r=await fetch(t.audioUrl!,{headers:{"User-Agent":UA,"Referer":"https://y2mate.gs/"}});if(!r.ok)throw new Error("Audio gagal diambil");return{track:t,buffer:Buffer.from(await r.arrayBuffer())}}
+async function ytdlAudio(videoId:string){
+  const stream=ytdl("https://www.youtube.com/watch?v="+encodeURIComponent(videoId),{
+    quality:"highestaudio",
+    filter:"audioonly",
+    highWaterMark:1<<24,
+  });
+  const chunks:Buffer[]=[];
+  for await(const chunk of stream)chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+export async function resolveSpotifyTrack(token:string,index:number){
+  const s=get(token),t=s.tracks[index];
+  if(!t)throw new Error("Track tidak ditemukan");
+  if(!t.audioUrl){
+    const r=await ytmSearch(t.title+" "+t.artist);
+    if(!r.length)throw new Error("Lagu tidak ditemukan");
+    try{
+      t.audioUrl=await y2mGet(r[0].videoId);
+    }catch(error){
+      t.audioUrl="ytdl://"+r[0].videoId;
+    }
+  }
+  return t;
+}
+async function audio(token:string,index:number){
+  const t=await resolveSpotifyTrack(token,index);
+  if(t.audioUrl?.startsWith("ytdl://")){
+    const videoId=t.audioUrl.slice("ytdl://".length);
+    return{track:t,buffer:await ytdlAudio(videoId)};
+  }
+  const r=await fetch(t.audioUrl!,{headers:{"User-Agent":UA,"Referer":"https://y2mate.gs/"}});
+  if(!r.ok)throw new Error("Audio gagal diambil");
+  return{track:t,buffer:Buffer.from(await r.arrayBuffer())};
+}
 export async function getSpotifyAudio(token:string,index:number){return audio(token,index)}
 export async function sendSpotifyTrack(token:string,index:number){const s=get(token),{track,buffer}=await audio(token,index);const media=new MessageMedia("audio/mpeg",buffer.toString("base64"),track.title.replace(/[<>:"/\\|?*\x00-\x1F]/g," ").slice(0,120)+".mp3");await s.client.sendMessage(s.chatId,media);return{title:track.title}}
 setInterval(()=>{const c=Date.now()-SESSION_TTL;for(const [k,v] of sessions)if(v.createdAt<c)sessions.delete(k)},60000).unref();
