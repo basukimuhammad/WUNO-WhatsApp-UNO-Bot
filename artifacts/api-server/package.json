@@ -48,7 +48,8 @@
     "jsonpath-plus": "~10.3.0",
     "minimist": "~1.2.5",
     "node-fzf": "~0.14.0",
-    "@ybd-project/ytdl-core": "latest"
+    "@ybd-project/ytdl-core": "latest",
+    "@coflyn/scrapr": "^1.0.2"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
