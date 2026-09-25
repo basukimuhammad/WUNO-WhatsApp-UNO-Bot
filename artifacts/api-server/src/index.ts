@@ -5,7 +5,7 @@ import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { getSpotifyAudio, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
+import { getSpotifyAudio, getSpotifyAudioById, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -30,40 +30,33 @@ app.get("/api/spotify/search", async (req, res) => {
 
 app.get("/api/spotify/stream", async (req, res) => {
   try {
-    const id = String(req.query.id || "");
-    const track = getSpotifyTrackById(id);
+    const id = String(req.query.id || "").trim();
+    if (!id) return res.status(400).type("text/plain").send("id wajib diisi");
 
-    if (!track.previewUrl) {
-      logger.error({ id, title: track.title }, "[SPOTIFY] previewUrl kosong");
-      return res.status(404).type("text/plain").send("previewUrl kosong");
-    }
-
-    const upstream = await fetch(track.previewUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
-      },
-    });
+    const { track, buffer, mime } = await getSpotifyAudioById(id);
 
     logger.info({
       id,
       title: track.title,
-      status: upstream.status,
-      contentType: upstream.headers.get("content-type"),
-    }, "[SPOTIFY] Preview upstream");
+      bytes: buffer.length,
+      mime,
+    }, "[SPOTIFY] Audio siap diputar");
 
-    if (!upstream.ok) {
-      throw new Error("Preview HTTP " + upstream.status);
-    }
-
-    res.setHeader("Content-Type", upstream.headers.get("content-type") || "audio/mpeg");
-    const len = upstream.headers.get("content-length");
-    if (len) res.setHeader("Content-Length", len);
+    res.setHeader("Content-Type", mime || "audio/mpeg");
+    res.setHeader("Content-Length", String(buffer.length));
+    res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Cache-Control", "public, max-age=60");
-    res.send(Buffer.from(await upstream.arrayBuffer()));
+    return res.send(buffer);
   } catch (e) {
-    logger.error({ err: e, id: String(req.query.id || "") }, "[SPOTIFY] Stream gagal");
-    res.status(502).type("text/plain").send(e instanceof Error ? e.message : "Stream gagal");
+    logger.error({
+      err: e,
+      id: String(req.query.id || ""),
+    }, "[SPOTIFY] Stream gagal");
+
+    return res
+      .status(502)
+      .type("text/plain")
+      .send(e instanceof Error ? e.message : "Stream gagal");
   }
 });
 
