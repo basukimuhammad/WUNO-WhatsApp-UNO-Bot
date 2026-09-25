@@ -727,33 +727,33 @@ export async function resolveSpotifyHtmlAudio(id: string): Promise<{
     return { track, audioUrl: cached.url };
   }
 
-  let audioUrl = "";
+  // SpotSaver previewUrl adalah sumber pertama. Ini yang paling ringan dan
+  // memang sudah disediakan khusus untuk playback preview.
+  if (track.previewUrl) {
+    spotifyHtmlAudioCache.set(String(id), {
+      url: track.previewUrl,
+      createdAt: Date.now(),
+    });
+    return { track, audioUrl: track.previewUrl };
+  }
 
+  // Bila SpotSaver tidak memberi preview, baru coba resolver penuh seperti
+  // pola HIROBOT: YouTube Music -> Y2Mate.
   try {
     const results = await ytmSearch(track.title + " " + track.artist);
     if (results.length) {
-      audioUrl = await y2mateGetMp3Url(results[0].videoId);
+      const audioUrl = await y2mateGetMp3Url(results[0].videoId);
+      spotifyHtmlAudioCache.set(String(id), {
+        url: audioUrl,
+        createdAt: Date.now(),
+      });
+      return { track, audioUrl };
     }
   } catch (error) {
     loggerSafeSpotify("Y2MATE resolve gagal", error);
   }
 
-  // SpotSaver previewUrl menjadi fallback terakhir. Ini tetap audio yang
-  // diberikan langsung oleh SpotSaver dan tidak diunduh saat resolve.
-  if (!audioUrl && track.previewUrl) {
-    audioUrl = track.previewUrl;
-  }
-
-  if (!audioUrl) {
-    throw new Error("Audio lagu tidak tersedia.");
-  }
-
-  spotifyHtmlAudioCache.set(String(id), {
-    url: audioUrl,
-    createdAt: Date.now(),
-  });
-
-  return { track, audioUrl };
+  throw new Error("Audio lagu tidak tersedia.");
 }
 
 function loggerSafeSpotify(message: string, error: unknown) {
