@@ -39,7 +39,9 @@ export async function sendRichHtml(
   );
   // The reference Spotify Live HTML reads roomId/playerId/playerName.
   const gameUrl =
-    `${wsUrl}?game=${encodeURIComponent(game)}&roomId=${room}&playerId=${player}&playerName=${name}`;
+    game === "spotify"
+      ? wsUrl + "?game=spotify&room=" + room + "&player=" + player + "&name=" + name
+      : wsUrl + "?game=" + encodeURIComponent(game) + "&roomId=" + room + "&playerId=" + player + "&playerName=" + name;
   const preparedHtml = html
     .replaceAll("__WUNO_WS_URL__", JSON.stringify(gameUrl))
     .replaceAll("__WUNO_API_ORIGIN__", origin)
