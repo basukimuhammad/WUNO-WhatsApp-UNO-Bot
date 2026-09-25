@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { MessageMedia, type Client } from "whatsapp-web.js";
-import ytdl from "ytdl-core";
+import ytdl from "@ybd-project/ytdl-core/old";
 
 const BASE = "https://spotsaver.net";
 const YTM_API = "https://music.youtube.com/youtubei/v1/search";
@@ -118,14 +118,20 @@ export function createSpotifySession(client:Client,chatId:string){const token=ra
 export async function spotifySearch(token:string,q:string){const s=get(token);const v=q.trim();if(!v)throw new Error("Query kosong");s.tracks=(/^https?:\/\/open\.spotify\.com\//i.test(v)?await infoSpotify(v.split("?")[0]):await searchSpotify(v)).slice(0,12);return s.tracks.map(({audioUrl,...x})=>x)}
 export function getSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");return t}
 async function ytdlAudio(videoId:string){
-  const info=await ytdl.getInfo("https://www.youtube.com/watch?v="+encodeURIComponent(videoId));
+  const url="https://www.youtube.com/watch?v="+encodeURIComponent(videoId);
+  const info=await ytdl.getInfo(url);
   const formats=info.formats.filter((f:any)=>f.hasAudio&&!f.hasVideo);
-  const format=formats.find((f:any)=>f.container==="mp4")||formats.find((f:any)=>f.container==="webm")||formats[0];
+  const format=formats.find((f:any)=>/^audio\/mp4/i.test(f.mimeType||""))
+    || formats.find((f:any)=>/^audio\//i.test(f.mimeType||""))
+    || formats[0];
   if(!format)throw new Error("Format audio YouTube tidak tersedia");
   const stream=ytdl.downloadFromInfo(info,{format,highWaterMark:1<<24});
   const chunks:Buffer[]=[];
   for await(const chunk of stream)chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk));
-  return {buffer:Buffer.concat(chunks),mime:String(format.mimeType||"audio/webm").split(";")[0]};
+  return {
+    buffer:Buffer.concat(chunks),
+    mime:String(format.mimeType||"audio/mpeg").split(";")[0],
+  };
 }
 export async function resolveSpotifyTrack(token:string,index:number){
   const s=get(token),t=s.tracks[index];
