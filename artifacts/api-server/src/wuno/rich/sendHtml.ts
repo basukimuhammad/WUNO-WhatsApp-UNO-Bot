@@ -17,6 +17,7 @@ export async function sendRichHtml(
   html: string,
   title: string,
   game = "solo",
+  roomIdOverride?: string,
 ) {
   const sock = await startRichClient();
   const origin = getPublicOrigin();
@@ -28,7 +29,7 @@ export async function sendRichHtml(
   }
 
   const wsUrl = origin.replace(/^http/i, origin.startsWith("https") ? "wss" : "ws") + "/ws/games";
-  const room = encodeURIComponent(chat.message.from);
+  const room = encodeURIComponent(roomIdOverride || chat.message.from);
   const player = encodeURIComponent(chat.message.userNumber);
   const name = encodeURIComponent(chat.message.userName || chat.message.userNumber);
   const gameUrl = `${wsUrl}?game=${encodeURIComponent(game)}&room=${room}&player=${player}&name=${name}`;
