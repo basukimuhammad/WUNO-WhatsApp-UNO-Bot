@@ -721,15 +721,21 @@ export async function resolveSpotifyHtmlAudio(id: string): Promise<{
   audioUrl: string;
 }> {
   const track = getSpotifyTrackById(id);
+  console.info("[SPOTIFY-RESOLVE] START", { id: String(id), title: track.title, artist: track.artist, previewUrl: track.previewUrl || null, thumbnail: track.thumbnail || null });
   const cached = spotifyHtmlAudioCache.get(String(id));
 
   if (cached && Date.now() - cached.createdAt < 10 * 60 * 1000) {
+    console.info("[SPOTIFY-RESOLVE] CACHE HIT", { id: String(id), url: cached.url });
     return { track, audioUrl: cached.url };
   }
 
   // SpotSaver previewUrl adalah sumber pertama. Ini yang paling ringan dan
   // memang sudah disediakan khusus untuk playback preview.
   if (track.previewUrl) {
+    console.info("[SPOTIFY-RESOLVE] USING SPOTSAVER PREVIEW", {
+      id: String(id),
+      url: track.previewUrl,
+    });
     spotifyHtmlAudioCache.set(String(id), {
       url: track.previewUrl,
       createdAt: Date.now(),
@@ -740,9 +746,23 @@ export async function resolveSpotifyHtmlAudio(id: string): Promise<{
   // Bila SpotSaver tidak memberi preview, baru coba resolver penuh seperti
   // pola HIROBOT: YouTube Music -> Y2Mate.
   try {
+    console.info("[SPOTIFY-RESOLVE] PREVIEW MISSING, TRY YTM", {
+      id: String(id),
+      query: track.title + " " + track.artist,
+    });
     const results = await ytmSearch(track.title + " " + track.artist);
+    console.info("[SPOTIFY-RESOLVE] YTM RESULTS", {
+      id: String(id),
+      count: results.length,
+      first: results[0] || null,
+    });
     if (results.length) {
       const audioUrl = await y2mateGetMp3Url(results[0].videoId);
+      console.info("[SPOTIFY-RESOLVE] Y2MATE URL READY", {
+        id: String(id),
+        videoId: results[0].videoId,
+        url: audioUrl,
+      });
       spotifyHtmlAudioCache.set(String(id), {
         url: audioUrl,
         createdAt: Date.now(),
@@ -753,6 +773,12 @@ export async function resolveSpotifyHtmlAudio(id: string): Promise<{
     loggerSafeSpotify("Y2MATE resolve gagal", error);
   }
 
+  console.error("[SPOTIFY-RESOLVE] FAILED", {
+    id: String(id),
+    title: track.title,
+    artist: track.artist,
+    hasPreview: Boolean(track.previewUrl),
+  });
   throw new Error("Audio lagu tidak tersedia.");
 }
 
