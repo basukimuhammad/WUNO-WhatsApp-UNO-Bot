@@ -229,6 +229,19 @@ app.get("/api/spotify/proxy", async (req, res) => {
   }
 });
 
+app.use("/api/spotify", (req, _res, next) => {
+  logger.info({
+    method: req.method,
+    url: req.originalUrl,
+    host: req.headers.host,
+    origin: req.headers.origin || null,
+    referer: req.headers.referer || null,
+    range: req.headers.range || null,
+    userAgent: req.headers["user-agent"] || null,
+  }, "[SPOTIFY-HTTP] REQUEST");
+  next();
+});
+
 app.get("/api/spotify/audio/:id", async (req, res) => {
   const id = String(req.params.id || "").trim();
   const startedAt = Date.now();
