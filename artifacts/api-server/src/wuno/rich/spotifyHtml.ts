@@ -20,8 +20,69 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <div class="query">Hasil untuk: ${esc(query)}</div>
 <img class="cover" id="cover" src="${esc(initialCover)}" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
-<audio id="audio" controls preload="metadata" src="${esc("__WUNO_API_ORIGIN__/api/spotify/audio/" + encodeURIComponent(t.id))}"></audio>
-<div class="info" id="info">Spotify • audio siap diputar</div>
+<audio id="audio" controls preload="none"></audio>
+<div class="info" id="info">Spotify • siap diputar</div>
+<script>
+(function () {
+  const audio = document.getElementById("audio");
+  const cover = document.getElementById("cover");
+  const info = document.getElementById("info");
+  const audioUrl = "__WUNO_API_ORIGIN__/api/spotify/audio/" + encodeURIComponent(${trackId});
+  const coverUrl = "__WUNO_API_ORIGIN__/api/spotify/cover/" + encodeURIComponent(${trackId});
+
+  function log(label, extra) {
+    try { console.log("[WUNO-SPOTIFY]", Object.assign({ label: label }, extra || {})); } catch (_) {}
+  }
+  function status(text) { info.textContent = text; }
+
+  log("INIT", { origin: "__WUNO_API_ORIGIN__", audioUrl: audioUrl, coverUrl: coverUrl });
+
+  cover.addEventListener("load", function () {
+    log("COVER_LOAD", { width: cover.naturalWidth, height: cover.naturalHeight });
+  });
+  cover.addEventListener("error", function () {
+    log("COVER_ERROR");
+    status("⚠️ Cover gagal dimuat");
+  });
+
+  audio.addEventListener("loadstart", function () { log("AUDIO_LOADSTART"); status("⏳ Memuat audio..."); });
+  audio.addEventListener("loadedmetadata", function () {
+    log("AUDIO_METADATA", { duration: audio.duration, readyState: audio.readyState });
+    status("▶️ Audio siap");
+  });
+  audio.addEventListener("canplay", function () { log("AUDIO_CANPLAY", { readyState: audio.readyState }); });
+  audio.addEventListener("playing", function () { log("AUDIO_PLAYING", { currentTime: audio.currentTime }); status("▶️ Sedang diputar"); });
+  audio.addEventListener("pause", function () { log("AUDIO_PAUSE", { currentTime: audio.currentTime }); });
+  audio.addEventListener("stalled", function () { log("AUDIO_STALLED"); status("⚠️ Audio macet"); });
+  audio.addEventListener("waiting", function () { log("AUDIO_WAITING"); });
+  audio.addEventListener("error", function () {
+    const e = audio.error;
+    log("AUDIO_ERROR", {
+      code: e ? e.code : null,
+      message: e ? e.message : null,
+      networkState: audio.networkState,
+      readyState: audio.readyState
+    });
+    status("❌ Audio gagal dimuat");
+  });
+
+  audio.addEventListener("play", function () {
+    log("PLAY_CLICK");
+    status("⏳ Menghubungi server audio...");
+    if (audio.src !== audioUrl) {
+      log("SET_SRC");
+      audio.src = audioUrl;
+      audio.load();
+    }
+  });
+
+  window.addEventListener("error", function (event) {
+    log("WINDOW_ERROR", { message: event.message || null });
+  });
+
+  cover.src = coverUrl;
+})();
+</script>
 </body></html>`;
 }
 
