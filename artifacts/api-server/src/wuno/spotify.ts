@@ -317,60 +317,132 @@ async function fallbackDownloader(
   const videoUrl = "https://www.youtube.com/watch?v=" + videoId;
   const errors: string[] = [];
 
-  const methods = [
-    async () => {
-      const data = await requestJson(
-        "https://api.nekolabs.my.id/downloader/youtube/v1?url=" +
-          encodeURIComponent(videoUrl) +
-          "&format=mp3",
-        {},
-        45000,
-      );
-      if (!data?.success || !data?.result?.downloadUrl) {
-        throw new Error("NekoLabs URL kosong");
-      }
-      return downloadBinary(
-        String(data.result.downloadUrl),
-        "https://api.nekolabs.my.id/",
-      );
-    },
-    async () => {
-      const data = await requestJson(
-        "https://ytdlpyton.nvlgroup.my.id/download/audio?url=" +
-          encodeURIComponent(videoUrl) +
-          "&mode=url",
-        {},
-        45000,
-      );
-      if (!data?.download_url) throw new Error("YTDLPyton URL kosong");
-      return downloadBinary(
-        String(data.download_url),
-        "https://ytdlpyton.nvlgroup.my.id/",
-      );
-    },
-    async () => {
-      const data = await requestJson(
-        "https://anabot.my.id/api/download/ytmp4?url=" +
-          encodeURIComponent(videoUrl) +
-          "&quality=720p&apikey=freeApikey",
-        {},
-        45000,
-      );
-      const value = data?.data?.result?.urls;
-      const url = Array.isArray(value) ? value[0] : value;
-      if (!url) throw new Error("AnaBot URL kosong");
-      return downloadBinary(String(url), "https://anabot.my.id/");
-    },
-  ];
-
-  for (let index = 0; index < methods.length; index++) {
+  const downloadUrl = async (
+    url: string,
+    referer: string,
+    label: string,
+  ) => {
     try {
-      return await methods[index]();
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": UA,
+          Accept: "*/*",
+          Referer: referer,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(label + " HTTP " + response.status);
+      }
+
+      const mime = String(
+        response.headers.get("content-type") || "audio/mpeg",
+      ).split(";")[0];
+
+      return {
+        buffer: Buffer.from(await response.arrayBuffer()),
+        mime,
+      };
     } catch (error) {
-      errors.push(
-        `v${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+      throw new Error(
+        label + ": " + (error instanceof Error ? error.message : String(error)),
       );
     }
+  };
+
+  // 1. ytdlpyton - audio langsung
+  try {
+    const data = await requestJson(
+      "https://ytdlpyton.nvlgroup.my.id/download/audio?url=" +
+        encodeURIComponent(videoUrl) +
+        "&mode=url",
+      {},
+      45000,
+    );
+
+    if (!data?.download_url) throw new Error("URL audio kosong");
+
+    return await downloadUrl(
+      String(data.download_url),
+      "https://ytdlpyton.nvlgroup.my.id/",
+      "YTDLPyton",
+    );
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+
+  // 2. NekoLabs - MP3
+  try {
+    const data = await requestJson(
+      "https://api.nekolabs.my.id/downloader/youtube/v1?url=" +
+        encodeURIComponent(videoUrl) +
+        "&format=mp3",
+      {},
+      45000,
+    );
+
+    if (!data?.success || !data?.result?.downloadUrl) {
+      throw new Error("URL MP3 kosong");
+    }
+
+    return await downloadUrl(
+      String(data.result.downloadUrl),
+      "https://api.nekolabs.my.id/",
+      "NekoLabs",
+    );
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+
+  // 3. SaveNow - MP3 dengan polling
+  try {
+    const api = "https://p.savenow.to";
+    const key = "dfcb6d76f2f6a9894gjkege8a4ab232222";
+
+    const init = await requestJson(
+      api +
+        "/ajax/download.php?copyright=0&format=mp3&url=" +
+        encodeURIComponent(videoUrl) +
+        "&api=" +
+        encodeURIComponent(key),
+      {
+        headers: {
+          Referer: "https://p.savenow.to/",
+          Origin: "https://p.savenow.to",
+        },
+      },
+      30000,
+    );
+
+    if (!init?.success || !init?.progress_url) {
+      throw new Error("SaveNow gagal memulai download");
+    }
+
+    let finalUrl = "";
+    for (let i = 0; i < 40; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+
+      const result = await requestJson(String(init.progress_url), {}, 30000);
+
+      if (result?.success === -1) {
+        throw new Error("SaveNow gagal memproses audio");
+      }
+
+      if (result?.download_url) {
+        finalUrl = String(result.download_url);
+        break;
+      }
+    }
+
+    if (!finalUrl) throw new Error("SaveNow timeout");
+
+    return await downloadUrl(
+      finalUrl,
+      "https://p.savenow.to/",
+      "SaveNow",
+    );
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
   }
 
   throw new Error("Downloader YouTube gagal: " + errors.join(" | "));
