@@ -66,7 +66,7 @@ export function createOrGetSpotifyLiveRoom(ownerChatId: string) {
   return room;
 }
 
-export function getSpotifyLiveRoom(code: string) {
+export function getOrCreateSpotifyLiveRoom(ownerChatId: string) { return createOrGetSpotifyLiveRoom(ownerChatId); }\n\nexport function getSpotifyLiveRoom(code: string) {
   return rooms.get(code.trim().toUpperCase());
 }
 
