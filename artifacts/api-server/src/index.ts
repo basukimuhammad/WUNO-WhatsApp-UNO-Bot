@@ -131,21 +131,21 @@ app.get("/api/spotify/proxy", async (req, res) => {
       contentType === "binary/octet-stream" ||
       contentType === "text/plain"
     ) {
-      if (/\\.mp3$/.test(cleanUrl) || /[?&]f=mp3(?:&|$)/i.test(rawUrl)) {
+      if (/\.mp3$/.test(cleanUrl) || /[?&]f=mp3(?:&|$)/i.test(rawUrl)) {
         contentType = "audio/mpeg";
-      } else if (/\\.(m4a|mp4a)$/.test(cleanUrl)) {
+      } else if (/\.(m4a|mp4a)$/.test(cleanUrl)) {
         contentType = "audio/mp4";
-      } else if (/\\.ogg$/.test(cleanUrl)) {
+      } else if (/\.ogg$/.test(cleanUrl)) {
         contentType = "audio/ogg";
-      } else if (/\\.(png)$/.test(cleanUrl)) {
+      } else if (/\.(png)$/.test(cleanUrl)) {
         contentType = "image/png";
-      } else if (/\\.(jpe?g)$/.test(cleanUrl)) {
+      } else if (/\.(jpe?g)$/.test(cleanUrl)) {
         contentType = "image/jpeg";
-      } else if (/\\.webp$/.test(cleanUrl)) {
+      } else if (/\.webp$/.test(cleanUrl)) {
         contentType = "image/webp";
-      } else if (/\\.gif$/.test(cleanUrl)) {
+      } else if (/\.gif$/.test(cleanUrl)) {
         contentType = "image/gif";
-      } else if (/\\.svg$/.test(cleanUrl)) {
+      } else if (/\.svg$/.test(cleanUrl)) {
         contentType = "image/svg+xml";
       } else {
         contentType = "application/octet-stream";
@@ -218,6 +218,116 @@ type Room = { game: string; players: Player[]; board: string[]; turn: string; wi
 
 
 // --- Spotify Live: pencarian dan audio sinkron ---
+app.get("/api/spotify/stream", async (req, res) => {
+  const id = String(req.query.id || "").trim();
+
+  if (!id) {
+    return res.status(400).type("text/plain").send("id wajib diisi");
+  }
+
+  try {
+    const { track, audioUrl } = await resolveSpotifyHtmlAudio(id);
+    const range = String(req.headers.range || "");
+
+    const headers: Record<string, string> = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+      Accept: "*/*",
+      Referer: audioUrl.includes("y2mate") || audioUrl.includes("etacloud")
+        ? "https://y2mate.gs/"
+        : "https://spotsaver.net/",
+    };
+
+    if (range) headers.Range = range;
+
+    logger.info({
+      id,
+      title: track.title,
+      range: range || null,
+    }, "[SPOTIFY] Stream request");
+
+    let upstream = await fetch(audioUrl, {
+      method: "GET",
+      headers,
+      redirect: "follow",
+    });
+
+    if ([400, 401, 403].includes(upstream.status)) {
+      upstream = await fetch(audioUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          Accept: "*/*",
+          ...(range ? { Range: range } : {}),
+        },
+        redirect: "follow",
+      });
+    }
+
+    const upstreamType = (upstream.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    const contentType =
+      upstreamType &&
+      upstreamType !== "application/octet-stream" &&
+      upstreamType !== "binary/octet-stream"
+        ? upstreamType
+        : /[?&]f=mp3(?:&|$)/i.test(audioUrl)
+          ? "audio/mpeg"
+          : "audio/mpeg";
+
+    logger.info({
+      id,
+      title: track.title,
+      status: upstream.status,
+      contentType,
+      length: upstream.headers.get("content-length"),
+      contentRange: upstream.headers.get("content-range"),
+    }, "[SPOTIFY] Stream upstream");
+
+    if (!upstream.ok && upstream.status !== 206) {
+      if (upstream.body) {
+        try { await upstream.body.cancel(); } catch {}
+      }
+      return res.status(502).type("text/plain").send(
+        "Audio upstream HTTP " + upstream.status,
+      );
+    }
+
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Accept-Ranges", upstream.headers.get("accept-ranges") || "bytes");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "Content-Length, Content-Range, Accept-Ranges",
+    );
+    res.setHeader("Cache-Control", "no-store");
+
+    const length = upstream.headers.get("content-length");
+    const contentRange = upstream.headers.get("content-range");
+    if (length) res.setHeader("Content-Length", length);
+    if (contentRange) res.setHeader("Content-Range", contentRange);
+
+    if (!upstream.body) return res.end();
+
+    const { Readable } = await import("node:stream");
+    return Readable.fromWeb(upstream.body as any).pipe(res);
+  } catch (error) {
+    logger.error({
+      err: error,
+      id,
+    }, "[SPOTIFY] Stream gagal");
+
+    return res.status(502).type("text/plain").send(
+      error instanceof Error ? error.message : "Stream gagal",
+    );
+  }
+});
+
 app.get("/api/spotify-live/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
   if (!q) return res.json({ results: [] });
