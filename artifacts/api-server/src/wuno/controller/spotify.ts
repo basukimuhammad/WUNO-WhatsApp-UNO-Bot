@@ -1,6 +1,6 @@
 import type { Chat } from "../lib/Chat";
 import { sendRichHtml } from "../rich/sendHtml";
-import { SPOTIFY_PLAYER_HTML } from "../rich/spotifyHtml";
+import { buildSpotifyPlayerHtml } from "../rich/spotifyHtml";
 import { createSpotifySession, spotifySearch } from "../spotify";
 
 export default async function spotify(chat: Chat) {
@@ -26,14 +26,7 @@ export default async function spotify(chat: Chat) {
       return;
     }
 
-    const html = SPOTIFY_PLAYER_HTML
-      .replaceAll("__WUNO_SPOTIFY_TOKEN__", JSON.stringify(token))
-      .replaceAll("__WUNO_SPOTIFY_QUERY__", JSON.stringify(query))
-      .replaceAll(
-        "__WUNO_SPOTIFY_TRACKS__",
-        JSON.stringify(tracks.slice(0, 8)).replace(/</g, "\\u003c"),
-      );
-
+    const html = buildSpotifyPlayerHtml(token, query, tracks.slice(0, 8));
     await sendRichHtml(chat, html, "🎵 WUNO Spotify", "spotify");
   } catch (error) {
     chat.logger.error({ err: error }, "[SPOTIFY] Gagal membuat player");
