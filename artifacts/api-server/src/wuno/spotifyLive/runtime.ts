@@ -83,6 +83,11 @@ export function roomState(room: SpotifyLiveRoom, me?: string, message?: string) 
       (room.isPlaying ? Math.max(0, (Date.now() - room.updatedAt) / 1000) : 0),
     updatedAt: room.updatedAt,
     listenerCount: room.members.size,
+    members: Array.from(room.members.values()).map((member) => ({
+      id: member.id,
+      name: member.name,
+      isHost: member.id === room.hostId,
+    })),
     isHost: me ? room.hostId === me : false,
     message: message ?? "",
   };
