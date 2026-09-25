@@ -26,6 +26,7 @@ export default async function spotifyLive(chat: Chat) {
       "🎧 WUNO Spotify Live",
       "spotifylive",
       room.code,
+      !requestedCode,
     );
 
     await chat.sendToCurrentPerson(
