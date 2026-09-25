@@ -95,6 +95,6 @@ function sendTrack(){
 audio.addEventListener("play",function(){play.textContent="⏸"});audio.addEventListener("pause",function(){play.textContent="▶"});audio.addEventListener("timeupdate",function(){if(!audio.duration)return;seek.value=String(audio.currentTime/audio.duration*100);cur.textContent=fmt(audio.currentTime);dur.textContent=fmt(audio.duration)});audio.addEventListener("loadedmetadata",function(){dur.textContent=fmt(audio.duration)});audio.addEventListener("ended",nextTrack);seek.addEventListener("input",function(){if(audio.duration)audio.currentTime=Number(seek.value)/100*audio.duration});
 sq.addEventListener("keydown",function(e){if(e.key==="Enter")spotifySearch()});
 if(INITIAL_QUERY){sq.value=INITIAL_QUERY;setTimeout(spotifySearch,200)}
-</script></body></html>\`
+</script></body></html>`;
 
 export { SPOTIFY_LIVE_HTML } from "../spotifyLive/html";
