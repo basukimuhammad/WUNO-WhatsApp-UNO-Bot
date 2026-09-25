@@ -28,9 +28,13 @@ export function buildSpotifyPlayerHtml(
     return '<!doctype html><html><body style="font-family:Arial;text-align:center;padding:30px">🎵 Lagu tidak ditemukan.</body></html>';
   }
 
-  // SpotSaver sudah memberikan URL thumbnail dan previewUrl yang bisa dipakai langsung.
-  const coverUrl = t.thumbnail || "";
-  const audioUrl = t.previewUrl || "";
+  // HTML WhatsApp tidak selalu bisa memuat resource CDN SpotSaver secara langsung.
+  // Gunakan endpoint server sebagai proxy playback/image, tetapi sumbernya tetap
+  // thumbnail + previewUrl yang diberikan SpotSaver.
+  const origin = "__WUNO_API_ORIGIN__";
+  const id = encodeURIComponent(t.id);
+  const coverUrl = origin + "/api/spotify/cover?id=" + id;
+  const audioUrl = origin + "/api/spotify/stream?id=" + id;
 
   return `<!doctype html>
 <html lang="id">
