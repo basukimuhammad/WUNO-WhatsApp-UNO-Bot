@@ -21,50 +21,80 @@ const W=10,H=20,S=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]]
 function np(){p=S[Math.random()*S.length|0].map(r=>[...r]);x=(W-p[0].length)/2|0;y=0;if(hit(0,0))over=1}function hit(dx,dy,q=p){return q.some((r,j)=>r.some((v,i)=>v&&(x+i+dx<0||x+i+dx>=W||y+j+dy>=H||g[y+j+dy]?.[x+i+dx])))}function merge(){p.forEach((r,j)=>r.forEach((v,i)=>{if(v)g[y+j][x+i]=1}))}function clear(){let n=0;g=g.filter(r=>r.some(v=>!v)?1:(n++,0));while(g.length<H)g.unshift(Array(W).fill(0));sc+=n*n*100}function draw(){let e=document.getElementById("b");e.innerHTML="";for(let j=0;j<H;j++)for(let i=0;i<W;i++){let d=document.createElement("div");d.className="c"+(g[j][i]?" f":"");e.appendChild(d)}p?.forEach((r,j)=>r.forEach((v,i)=>{if(v){let k=(y+j)*W+x+i;e.children[k]?.classList.add("f")}}));document.getElementById("s").textContent=over?"Game Over • Skor "+sc:"Skor "+sc}function step(){if(over)return;if(!hit(0,1))y++;else{merge();clear();np()}draw()}function mv(d){if(!over&&!hit(d,0))x+=d;draw()}function rot(){let q=p[0].map((_,i)=>p.map(r=>r[i]).reverse());if(!hit(0,0,q))p=q;draw()}function down(){while(!hit(0,1))y++;step()}function hard(){down()}np();draw();setInterval(step,600);
 </script></body></html>`;
 
-export const SPOTIFY_HTML = String.raw`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
-body{margin:0;background:transparent;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;padding:12px}
-.app{width:100%;max-width:520px;margin:auto}.card{background:linear-gradient(180deg,#262626 0%,#121212 46%,#0d0d0d 100%);border-radius:20px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
-.brand{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:1.2px;color:#1ed760;margin-bottom:14px}.brand svg{width:20px;height:20px}
-.search{display:flex;gap:8px;margin-bottom:12px}.search input{flex:1;min-width:0;padding:12px 13px;border-radius:12px;border:1px solid #3b3b3b;background:#181818;color:#fff;outline:none}.search button,.action{border:0;border-radius:12px;padding:12px 14px;background:#1ed760;color:#000;font-weight:800;cursor:pointer}
-.results{display:grid;gap:8px;max-height:260px;overflow:auto;margin-bottom:14px}.result{display:flex;gap:10px;align-items:center;padding:9px;border-radius:12px;background:#191919;cursor:pointer}.result.active{outline:1px solid rgba(30,215,96,.7);background:#202520}.result img{width:48px;height:48px;border-radius:7px;object-fit:cover;background:#262626}.rmeta{min-width:0;flex:1}.rtitle{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rsub{font-size:11px;color:#a7a7a7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.empty{padding:14px;text-align:center;color:#8b8b8b;font-size:12px;background:#171717;border-radius:12px}
-.cover-wrap{position:relative;width:100%;height:0;padding-top:100%;border-radius:14px;overflow:hidden;background:#282828;box-shadow:0 8px 24px rgba(0,0,0,.35)}.cover-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.spinner{position:absolute;top:50%;left:50%;width:34px;height:34px;margin:-17px;border:3px solid rgba(255,255,255,.22);border-top-color:#1ed760;border-radius:50%;animation:spin .8s linear infinite;display:none}@keyframes spin{to{transform:rotate(360deg)}}
-.meta{margin-top:15px;text-align:center}.title{font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{font-size:13px;color:#b3b3b3;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.progress{display:flex;align-items:center;gap:8px;margin-top:15px}.progress span{font-size:10px;color:#8d8d8d;min-width:31px;text-align:center}.progress input{flex:1;accent-color:#fff}
-.controls{display:flex;justify-content:center;align-items:center;gap:22px;margin-top:10px}.ctrl{border:0;background:none;color:#fff;padding:8px;cursor:pointer}.ctrl:disabled{opacity:.35;cursor:default}.play{width:56px;height:56px;border-radius:50%;background:#1ed760;color:#000;font-size:20px;font-weight:900}
-.bottom{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:15px}.status{font-size:11px;color:#8f8f8f;min-height:16px}.action{background:#fff}.action:disabled{opacity:.45}
-</style></head><body><div class="app"><div class="card">
-<div class="brand"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1ed760"/><path d="M17.5 16.2c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.2-2.7c-.3.4-.7.5-1.1.3-2.9-1.8-7.3-2.3-10.7-1.3-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 3.9-1.2 8.7-.6 12 1.5.4.2.5.7.3 1zm.1-2.8C15.4 8.6 9.1 8.4 5.5 9.5c-.5.2-1.1-.1-1.2-.6-.2-.5.1-1.1.6-1.2 4.2-1.3 11.1-1 15.1 1.3.5.3.6.9.3 1.4-.3.4-.9.5-1.4.2z" fill="#000"/></svg>SPOTIFY</div>
-<div class="search"><input id="q" placeholder="Cari judul lagu atau artis"><button id="searchBtn">Cari</button></div>
-<div id="results" class="results"><div class="empty">Ketik judul lagu lalu tekan Cari.</div></div>
-<div class="cover-wrap"><img id="cover" alt=""><div id="spinner" class="spinner"></div></div>
-<div class="meta"><div id="title" class="title">Belum memilih lagu</div><div id="artist" class="artist">&nbsp;</div></div>
-<div class="progress"><span id="cur">0:00</span><input id="seek" type="range" min="0" max="100" value="0" step="0.1"><span id="dur">0:00</span></div>
-<div class="controls"><button id="prev" class="ctrl">⏮</button><button id="play" class="ctrl play">▶</button><button id="next" class="ctrl">⏭</button></div>
-<div class="bottom"><div id="status" class="status"></div><button id="send" class="action" disabled>Kirim ke WhatsApp</button></div>
-</div></div>
+export const SPOTIFY_HTML = String.raw\`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:transparent;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;padding:12px}
+.wrap{max-width:520px;margin:auto}.card{background:linear-gradient(180deg,#292929,#101010);border-radius:20px;padding:18px}
+.brand{display:flex;align-items:center;gap:9px;color:#1ed760;font-size:13px;font-weight:900;letter-spacing:1px;margin-bottom:16px}.brand b{font-size:20px}
+.search{display:flex;gap:8px}.search input{flex:1;min-width:0;background:#181818;color:#fff;border:1px solid #444;border-radius:12px;padding:13px;font-size:14px;outline:none}.search button{border:0;border-radius:12px;padding:0 18px;background:#1ed760;color:#000;font-weight:900;font-size:14px}
+#msg{font-size:12px;color:#999;min-height:18px;margin:10px 2px}.results{display:flex;flex-direction:column;gap:6px;margin-top:8px}.item{display:flex;align-items:center;gap:10px;padding:9px;background:#191919;border-radius:12px;cursor:pointer}.item img{width:54px;height:54px;border-radius:8px;object-fit:cover;background:#2a2a2a}.info{min-width:0;flex:1}.title{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:11px;color:#aaa;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player{margin-top:14px}.cover{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;background:#222}.ptitle{font-size:17px;font-weight:900;text-align:center;margin-top:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.partist{font-size:12px;color:#aaa;text-align:center;margin-top:3px}.bar{display:flex;align-items:center;gap:8px;margin-top:12px}.bar span{font-size:10px;color:#999;min-width:30px;text-align:center}.bar input{flex:1}.controls{display:flex;justify-content:center;align-items:center;gap:22px;margin-top:8px}.controls button{border:0;background:none;color:#fff;font-size:25px;padding:8px}.controls .play{width:56px;height:56px;border-radius:50%;background:#1ed760;color:#000;font-size:23px}.send{display:block;margin:14px auto 0;border:0;border-radius:12px;padding:11px 18px;background:#fff;color:#000;font-weight:900}
+</style></head><body><div class="wrap"><div class="card">
+<div class="brand"><b>♫</b> SPOTIFY</div>
+<div class="search"><input id="sq" type="text" placeholder="Judul lagu / artis"><button id="sbtn" type="button" onclick="spotifySearch()">Cari</button></div>
+<div id="msg">Masukkan judul lagu lalu tekan Cari.</div>
+<div id="results" class="results"></div>
+<div class="player"><img id="cover" class="cover" alt=""><div id="ptitle" class="ptitle">Belum memilih lagu</div><div id="partist" class="partist">&nbsp;</div>
+<div class="bar"><span id="cur">0:00</span><input id="seek" type="range" min="0" max="100" value="0"><span id="dur">0:00</span></div>
+<div class="controls"><button type="button" onclick="prevTrack()">⏮</button><button id="play" type="button" class="play" onclick="togglePlay()">▶</button><button type="button" onclick="nextTrack()">⏭</button></div>
+<button id="send" type="button" class="send" onclick="sendTrack()" disabled>Kirim ke WhatsApp</button></div>
 <audio id="audio" preload="none"></audio>
+</div></div>
 <script>
-const API="__WUNO_API_ORIGIN__";
-const TOKEN="__WUNO_SPOTIFY_TOKEN__";
-const initialQuery="__WUNO_SPOTIFY_INITIAL_QUERY__";
-const fallback='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#282828"/></svg>');
-let tracks=[],idx=-1,loading=false,loadedIdx=-1,requestId=0;
-const qEl=document.getElementById("q"),searchBtn=document.getElementById("searchBtn"),resultsEl=document.getElementById("results"),cover=document.getElementById("cover"),spinner=document.getElementById("spinner"),titleEl=document.getElementById("title"),artistEl=document.getElementById("artist"),seek=document.getElementById("seek"),curEl=document.getElementById("cur"),durEl=document.getElementById("dur"),audio=document.getElementById("audio"),playBtn=document.getElementById("play"),prevBtn=document.getElementById("prev"),nextBtn=document.getElementById("next"),sendBtn=document.getElementById("send"),statusEl=document.getElementById("status");
-function api(path){return API+path+(path.includes("?")?"&":"?")+"token="+encodeURIComponent(TOKEN)}
-function fmt(s){if(!isFinite(s)||s<0)s=0;return Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0")}
-function status(s){statusEl.textContent=s||""}
-function renderResults(){resultsEl.innerHTML="";if(!tracks.length){resultsEl.innerHTML='<div class="empty">Tidak ada hasil.</div>';return}tracks.forEach((t,i)=>{const el=document.createElement("div");el.className="result"+(i===idx?" active":"");el.innerHTML='<img src="'+(t.thumbnail||fallback)+'"><div class="rmeta"><div class="rtitle"></div><div class="rsub"></div></div>';el.querySelector(".rtitle").textContent=t.title;el.querySelector(".rsub").textContent=(t.artist||"Unknown")+" • "+(t.album||"Unknown Album")+" • "+(t.duration||"0:00");el.onclick=()=>selectTrack(i,true);resultsEl.appendChild(el)})}
-function selectTrack(i,auto){if(!tracks[i])return;idx=i;loadedIdx=-1;audio.pause();audio.currentTime=0;seek.value=0;renderResults();const t=tracks[idx];titleEl.textContent=t.title;artistEl.textContent=t.artist||" ";cover.src=t.thumbnail||fallback;sendBtn.disabled=false;if(auto)loadCurrent(true)}
-async function search(){const q=qEl.value.trim();if(!q)return;searchBtn.disabled=true;status("Mencari...");resultsEl.innerHTML='<div class="empty">Sedang mencari...</div>';try{const r=await fetch(api("/api/spotify/search?q="+encodeURIComponent(q)),{cache:"no-store"});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||("HTTP "+r.status));tracks=Array.isArray(d.results)?d.results:[];idx=tracks.length?0:-1;renderResults();if(idx>=0)selectTrack(idx,false);status(tracks.length?tracks.length+" hasil ditemukan":"Tidak ada hasil");}catch(e){resultsEl.innerHTML='<div class="empty"></div>';resultsEl.firstChild.textContent=e&&e.message?e.message:"Search gagal";status("Pencarian gagal");}finally{searchBtn.disabled=false}}
-async function loadCurrent(autoplay){if(idx<0||loading)return;const t=tracks[idx];titleEl.textContent=t.title;artistEl.textContent=t.artist||" ";cover.src=t.thumbnail||fallback;if(t.audioUrl){audio.src=t.audioUrl;audio.load();loadedIdx=idx;if(autoplay)audio.play().catch(()=>{});return}loading=true;spinner.style.display="block";playBtn.disabled=true;status("Menyiapkan audio...");const rid=++requestId;try{const r=await fetch(api("/api/spotify/resolve?index="+idx));const d=await r.json();if(rid!==requestId)return;if(!r.ok)throw new Error(d.error||"Gagal menyiapkan audio");t.audioUrl=api("/api/spotify/stream?index="+idx);audio.src=t.audioUrl;audio.load();loadedIdx=idx;if(autoplay)audio.play().catch(()=>{});status("")}catch(e){status(e.message||"Gagal menyiapkan audio")}finally{loading=false;spinner.style.display="none";playBtn.disabled=false}}
-function next(){if(!tracks.length)return;selectTrack((idx+1)%tracks.length,true)}
-function prev(){if(!tracks.length)return;selectTrack((idx-1+tracks.length)%tracks.length,true)}
-searchBtn.onclick=search;qEl.addEventListener("keydown",e=>{if(e.key==="Enter")search()});playBtn.onclick=async()=>{if(idx<0)return;if(loadedIdx!==idx){await loadCurrent(true);return}if(audio.paused)audio.play().catch(()=>{});else audio.pause()};nextBtn.onclick=next;prevBtn.onclick=prev;
-audio.addEventListener("play",()=>playBtn.textContent="⏸");audio.addEventListener("pause",()=>playBtn.textContent="▶");audio.addEventListener("timeupdate",()=>{if(!audio.duration)return;seek.value=String(audio.currentTime/audio.duration*100);curEl.textContent=fmt(audio.currentTime);durEl.textContent=fmt(audio.duration)});audio.addEventListener("loadedmetadata",()=>{durEl.textContent=fmt(audio.duration)});audio.addEventListener("ended",next);seek.oninput=()=>{if(audio.duration)audio.currentTime=Number(seek.value)/100*audio.duration};
-sendBtn.onclick=async()=>{if(idx<0)return;sendBtn.disabled=true;sendBtn.textContent="Mengirim...";status("Mengirim audio ke chat...");try{const r=await fetch(api("/api/spotify/send?index="+idx),{method:"POST"});const d=await r.json();if(!r.ok)throw new Error(d.error||"Gagal mengirim");sendBtn.textContent="Terkirim ✓";status("Audio sudah dikirim ke WhatsApp.");setTimeout(()=>{sendBtn.textContent="Kirim ke WhatsApp";sendBtn.disabled=false},2500)}catch(e){sendBtn.textContent="Gagal";status(e.message||"Gagal mengirim");setTimeout(()=>{sendBtn.textContent="Kirim ke WhatsApp";sendBtn.disabled=false},2500)}};
-cover.onerror=()=>{cover.src=fallback};
-if(initialQuery){qEl.value=initialQuery;search()}
-</script></body></html>`;
+var API_ORIGIN="__WUNO_API_ORIGIN__";
+var TOKEN="__WUNO_SPOTIFY_TOKEN__";
+var INITIAL_QUERY="__WUNO_SPOTIFY_INITIAL_QUERY__";
+var tracks=[],currentIndex=-1,audioLoadedIndex=-1,busy=false;
+var sq=document.getElementById("sq"),sbtn=document.getElementById("sbtn"),msg=document.getElementById("msg"),results=document.getElementById("results"),cover=document.getElementById("cover"),ptitle=document.getElementById("ptitle"),partist=document.getElementById("partist"),audio=document.getElementById("audio"),play=document.getElementById("play"),seek=document.getElementById("seek"),cur=document.getElementById("cur"),dur=document.getElementById("dur"),send=document.getElementById("send");
+function esc(v){var d=document.createElement("div");d.textContent=v||"";return d.innerHTML}
+function fmt(v){if(!isFinite(v)||v<0)v=0;return Math.floor(v/60)+":"+String(Math.floor(v%60)).padStart(2,"0")}
+function url(path){return API_ORIGIN+path+(path.indexOf("?")>=0?"&":"?")+"token="+encodeURIComponent(TOKEN)}
+function setMsg(v){msg.textContent=v||""}
+function request(path,done){var x=new XMLHttpRequest();x.open("GET",url(path),true);x.timeout=25000;x.onreadystatechange=function(){if(x.readyState!==4)return;var data={};try{data=JSON.parse(x.responseText||"{}")}catch(e){}if(x.status>=200&&x.status<300)done(null,data);else done(new Error(data.error||("HTTP "+x.status)),data)};x.ontimeout=function(){done(new Error("Request timeout"))};x.onerror=function(){done(new Error("Tidak bisa terhubung ke server WUNO"))};x.send()}
+function spotifySearch(){
+ var q=sq.value.trim();if(!q)return;
+ sbtn.disabled=true;setMsg("Mencari di SpotSaver...");results.innerHTML="<div class='sub'>Sedang mencari...</div>";
+ request("/api/spotify/search?q="+encodeURIComponent(q),function(err,data){
+   sbtn.disabled=false;
+   if(err){results.innerHTML="<div class='sub'></div>";results.firstChild.textContent=err.message;setMsg("Pencarian gagal");return}
+   tracks=Array.isArray(data.results)?data.results:[];currentIndex=-1;audioLoadedIndex=-1;renderResults();
+   if(!tracks.length){setMsg("SpotSaver tidak menemukan lagu.");return}
+   setMsg(tracks.length+" hasil ditemukan dari SpotSaver.");
+   chooseTrack(0,false);
+ });
+}
+function renderResults(){
+ results.innerHTML="";
+ tracks.forEach(function(t,i){
+   var el=document.createElement("div");el.className="item";
+   el.innerHTML="<img src='"+esc(t.thumbnail)+"'><div class='info'><div class='title'>"+esc(t.title)+"</div><div class='sub'>"+esc(t.artist||"Unknown Artist")+" • "+esc(t.album||"Unknown Album")+" • "+esc(t.duration||"0:00")+"</div></div>";
+   el.onclick=function(){chooseTrack(i,true)};results.appendChild(el);
+ });
+}
+function chooseTrack(i,auto){
+ if(!tracks[i])return;currentIndex=i;audioLoadedIndex=-1;audio.pause();audio.currentTime=0;seek.value=0;
+ var t=tracks[i];ptitle.textContent=t.title;partist.textContent=t.artist||"";cover.src=t.thumbnail||"";send.disabled=false;renderResults();if(auto)loadTrack(true);
+}
+function loadTrack(auto){
+ if(currentIndex<0||busy)return;
+ var t=tracks[currentIndex];busy=true;play.disabled=true;setMsg("Menyiapkan audio...");
+ request("/api/spotify/resolve?index="+currentIndex,function(err,data){
+   busy=false;play.disabled=false;
+   if(err){setMsg(err.message||"Gagal menyiapkan audio");return}
+   t.audioUrl=url("/api/spotify/stream?index="+currentIndex);audio.src=t.audioUrl;audio.load();audioLoadedIndex=currentIndex;setMsg("");
+   if(auto)audio.play().catch(function(){setMsg("Tekan Play untuk memulai audio.")});
+ });
+}
+function togglePlay(){if(currentIndex<0)return;if(audioLoadedIndex!==currentIndex){loadTrack(true);return}if(audio.paused)audio.play().catch(function(){});else audio.pause()}
+function prevTrack(){if(!tracks.length)return;chooseTrack((currentIndex-1+tracks.length)%tracks.length,true)}
+function nextTrack(){if(!tracks.length)return;chooseTrack((currentIndex+1)%tracks.length,true)}
+function sendTrack(){
+ if(currentIndex<0)return;send.disabled=true;send.textContent="Mengirim...";
+ var x=new XMLHttpRequest();x.open("POST",url("/api/spotify/send?index="+currentIndex),true);x.timeout=120000;x.setRequestHeader("Content-Type","application/json");x.onreadystatechange=function(){if(x.readyState!==4)return;var d={};try{d=JSON.parse(x.responseText||"{}")}catch(e){}if(x.status>=200&&x.status<300){send.textContent="Terkirim ✓";setMsg("Audio sudah dikirim ke WhatsApp.")}else{send.textContent="Gagal";setMsg(d.error||"Gagal mengirim audio")}setTimeout(function(){send.disabled=false;send.textContent="Kirim ke WhatsApp"},2500)};x.onerror=function(){send.disabled=false;send.textContent="Kirim ke WhatsApp";setMsg("Tidak bisa terhubung ke server")};x.ontimeout=function(){send.disabled=false;send.textContent="Kirim ke WhatsApp";setMsg("Pengiriman timeout")};x.send("{}");
+}
+audio.addEventListener("play",function(){play.textContent="⏸"});audio.addEventListener("pause",function(){play.textContent="▶"});audio.addEventListener("timeupdate",function(){if(!audio.duration)return;seek.value=String(audio.currentTime/audio.duration*100);cur.textContent=fmt(audio.currentTime);dur.textContent=fmt(audio.duration)});audio.addEventListener("loadedmetadata",function(){dur.textContent=fmt(audio.duration)});audio.addEventListener("ended",nextTrack);seek.addEventListener("input",function(){if(audio.duration)audio.currentTime=Number(seek.value)/100*audio.duration});
+sq.addEventListener("keydown",function(e){if(e.key==="Enter")spotifySearch()});
+if(INITIAL_QUERY){sq.value=INITIAL_QUERY;setTimeout(spotifySearch,200)}
+</script></body></html>\`
 
 export { SPOTIFY_LIVE_HTML } from "../spotifyLive/html";
