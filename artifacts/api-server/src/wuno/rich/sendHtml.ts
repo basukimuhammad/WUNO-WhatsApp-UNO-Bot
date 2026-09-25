@@ -18,6 +18,7 @@ export async function sendRichHtml(
   title: string,
   game = "solo",
   roomIdOverride?: string,
+  hostOverride = false,
 ) {
   const sock = await startRichClient();
   const origin = getPublicOrigin();
@@ -40,13 +41,22 @@ export async function sendRichHtml(
   const gameUrl =
     `${wsUrl}?game=${encodeURIComponent(game)}&roomId=${room}&playerId=${player}&playerName=${name}`;
   const preparedHtml = html
-    .replaceAll("__WUNO_WS_URL__", gameUrl)
-    .replaceAll("__WUNO_API_ORIGIN__", origin)
-    .replaceAll("__WUNO_ROOM_ID__", roomIdOverride || chat.message.from)
-    .replaceAll("__WUNO_PLAYER_ID__", chat.message.userNumber)
-    .replaceAll("__WUNO_IS_HOST__", roomIdOverride ? "false" : "true")    .replaceAll(
+    .replaceAll("__WUNO_WS_URL__", JSON.stringify(gameUrl))
+    .replaceAll("__WUNO_API_ORIGIN__", JSON.stringify(origin))
+    .replaceAll(
+      "__WUNO_ROOM_ID__",
+      JSON.stringify(roomIdOverride || chat.message.from),
+    )
+    .replaceAll(
+      "__WUNO_PLAYER_ID__",
+      JSON.stringify(String(chat.message.userNumber || "")),
+    )
+    .replaceAll("__WUNO_IS_HOST__", JSON.stringify(Boolean(hostOverride)))
+    .replaceAll(
       "__WUNO_PLAYER_NAME__",
-      chat.message.userName || chat.message.userNumber,
+      JSON.stringify(
+        String(chat.message.userName || chat.message.userNumber || "Pendengar"),
+      ),
     );
 
   const rich = new AIRich(sock)
