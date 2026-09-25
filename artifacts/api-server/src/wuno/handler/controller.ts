@@ -10,6 +10,7 @@ import tetris from "../controller/tetris";
 import tictactoe from "../controller/tictactoe";
 import connect4 from "../controller/connect4";
 import spotify from "../controller/spotify";
+import spotifyLive from "../controller/spotifyLive";
 import joingame from "../controller/joingame";
 import kick from "../controller/kick";
 import leaderboard from "../controller/leaderboard";
@@ -32,6 +33,7 @@ const controllers = {
   tictactoe,
   connect4,
   spotify,
+  spotifylive: spotifyLive,
   joingame,
   kick,
   leaderboard,
