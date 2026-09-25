@@ -228,6 +228,107 @@ async function downloadBinary(
   };
 }
 
+async function y2mateGetMp3Url(videoId: string): Promise<string> {
+  const headers = {
+    "Origin": "https://y2mate.gs",
+    "Referer": "https://y2mate.gs/",
+    "Accept": "application/json, text/plain, */*",
+    "User-Agent": UA,
+  };
+
+  const auth = await requestJson(
+    Y2MATE_API + "/api/v1/auth?api_key=" + Y2MATE_KEY + "&_=" + Date.now(),
+    { headers },
+    20000,
+  );
+
+  if (!auth?.key) throw new Error("y2mate auth gagal");
+
+  const init = await requestJson(
+    Y2MATE_API + "/api/v1/init?_=" + Date.now(),
+    {
+      headers: {
+        ...headers,
+        Authorization: "Bearer " + auth.key,
+      },
+    },
+    20000,
+  );
+
+  if (!init?.convertURL) throw new Error("y2mate init gagal");
+
+  let convertUrl = String(init.convertURL);
+  let progressUrl: string | null = null;
+  let downloadUrl = "";
+
+  for (let i = 0; i < 20; i++) {
+    const url = new URL(convertUrl);
+    url.searchParams.set("v", videoId);
+    url.searchParams.set("f", "mp3");
+    url.searchParams.set("_", String(Date.now()));
+
+    const data = await requestJson(
+      url.toString(),
+      {
+        headers: {
+          ...headers,
+          Authorization: "Bearer " + auth.key,
+        },
+      },
+      20000,
+    );
+
+    if (data?.downloadURL) {
+      downloadUrl = String(data.downloadURL);
+      break;
+    }
+
+    if (data?.progressURL) progressUrl = String(data.progressURL);
+
+    if (data?.redirectURL) {
+      convertUrl = String(data.redirectURL);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      continue;
+    }
+
+    break;
+  }
+
+  if (!downloadUrl && progressUrl) {
+    for (let i = 0; i < 30; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      const data = await requestJson(progressUrl, { headers }, 20000);
+
+      if (data?.downloadURL) {
+        downloadUrl = String(data.downloadURL);
+        break;
+      }
+
+      if (data?.redirectURL) {
+        const redirect = await requestJson(
+          String(data.redirectURL),
+          { headers },
+          20000,
+        );
+
+        if (redirect?.downloadURL) {
+          downloadUrl = String(redirect.downloadURL);
+          break;
+        }
+
+        if (redirect?.progressURL) {
+          progressUrl = String(redirect.progressURL);
+        }
+      }
+    }
+  }
+
+  if (!downloadUrl) throw new Error("y2mate audio tidak tersedia");
+
+  return downloadUrl + "&v=" + encodeURIComponent(videoId) + "&f=mp3&r=y2mate.gs";
+}
+
 async function y2mateGet(videoId: string): Promise<{ buffer: Buffer; mime: string }> {
   const headers = {
     "Origin": "https://y2mate.gs",
@@ -612,6 +713,53 @@ export async function getSpotifyAudio(
 }
 
 const spotifyAudioCache = new Map<string, { buffer: Buffer; mime: string; createdAt: number }>();
+
+const spotifyHtmlAudioCache = new Map<string, { url: string; createdAt: number }>();
+
+export async function resolveSpotifyHtmlAudio(id: string): Promise<{
+  track: Track;
+  audioUrl: string;
+}> {
+  const track = getSpotifyTrackById(id);
+  const cached = spotifyHtmlAudioCache.get(String(id));
+
+  if (cached && Date.now() - cached.createdAt < 10 * 60 * 1000) {
+    return { track, audioUrl: cached.url };
+  }
+
+  let audioUrl = "";
+
+  try {
+    const results = await ytmSearch(track.title + " " + track.artist);
+    if (results.length) {
+      audioUrl = await y2mateGetMp3Url(results[0].videoId);
+    }
+  } catch (error) {
+    loggerSafeSpotify("Y2MATE resolve gagal", error);
+  }
+
+  // SpotSaver previewUrl menjadi fallback terakhir. Ini tetap audio yang
+  // diberikan langsung oleh SpotSaver dan tidak diunduh saat resolve.
+  if (!audioUrl && track.previewUrl) {
+    audioUrl = track.previewUrl;
+  }
+
+  if (!audioUrl) {
+    throw new Error("Audio lagu tidak tersedia.");
+  }
+
+  spotifyHtmlAudioCache.set(String(id), {
+    url: audioUrl,
+    createdAt: Date.now(),
+  });
+
+  return { track, audioUrl };
+}
+
+function loggerSafeSpotify(message: string, error: unknown) {
+  // Helper kecil agar modul Spotify tidak bergantung pada logger HTTP.
+  console.error("[SPOTIFY]", message, error instanceof Error ? error.message : error);
+}
 
 export async function getSpotifyAudioById(
   id: string,
