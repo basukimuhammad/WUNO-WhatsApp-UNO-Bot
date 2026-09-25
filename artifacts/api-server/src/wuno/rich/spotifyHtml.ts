@@ -53,9 +53,9 @@ body{margin:0;background:transparent;color:#fff;font-family:-apple-system,BlinkM
 </div></div>
 <audio id="audio" preload="none"></audio>
 <script>
-const TOKEN=\${safeToken};
-const QUERY=\${safeQuery};
-const TRACKS=\${safeTracks};
+const TOKEN=${safeToken};
+const QUERY=${safeQuery};
+const TRACKS=${safeTracks};
 const API_ORIGIN="__WUNO_API_ORIGIN__";
 const WS_URL=API_ORIGIN.replace(/^https:/,"wss:").replace(/^http:/,"ws:")+"/ws/games?game=spotify";
 let idx=0,loading=false,loadedIdx=-1,audioRetry=false,ws=null;
