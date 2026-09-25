@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { MessageMedia, type Client } from "whatsapp-web.js";
-import ytdl from "@ybd-project/ytdl-core/old";
+import { YtdlCore } from "@ybd-project/ytdl-core";
 
 const BASE = "https://spotsaver.net";
 const YTM_API = "https://music.youtube.com/youtubei/v1/search";
@@ -117,15 +117,16 @@ function get(token:string){const s=sessions.get(token);if(!s||Date.now()-s.creat
 export function createSpotifySession(client:Client,chatId:string){const token=randomBytes(24).toString("hex");sessions.set(token,{client,chatId,createdAt:Date.now(),tracks:[],audioBuffers:new Map(),audioMimes:new Map()});return token}
 export async function spotifySearch(token:string,q:string){const s=get(token);const v=q.trim();if(!v)throw new Error("Query kosong");s.tracks=(/^https?:\/\/open\.spotify\.com\//i.test(v)?await infoSpotify(v.split("?")[0]):await searchSpotify(v)).slice(0,12);return s.tracks.map(({audioUrl,...x})=>x)}
 export function getSpotifyTrack(token:string,index:number){const s=get(token),t=s.tracks[index];if(!t)throw new Error("Track tidak ditemukan");return t}
+const ytdlClient = new YtdlCore();
 async function ytdlAudio(videoId:string){
   const url="https://www.youtube.com/watch?v="+encodeURIComponent(videoId);
-  const info=await ytdl.getInfo(url);
-  const formats=info.formats.filter((f:any)=>f.hasAudio&&!f.hasVideo);
+  const info:any=await ytdlClient.getFullInfo(url);
+  const formats=(info.formats||[]).filter((f:any)=>f.hasAudio&&!f.hasVideo);
   const format=formats.find((f:any)=>/^audio\/mp4/i.test(f.mimeType||""))
     || formats.find((f:any)=>/^audio\//i.test(f.mimeType||""))
     || formats[0];
   if(!format)throw new Error("Format audio YouTube tidak tersedia");
-  const stream=ytdl.downloadFromInfo(info,{format,highWaterMark:1<<24});
+  const stream:any=await ytdlClient.download(url,{format,highWaterMark:1<<24});
   const chunks:Buffer[]=[];
   for await(const chunk of stream)chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk));
   return {
