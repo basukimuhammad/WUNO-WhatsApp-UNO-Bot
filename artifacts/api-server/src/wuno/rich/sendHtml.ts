@@ -44,7 +44,7 @@ export async function sendRichHtml(
     .replaceAll("__WUNO_API_ORIGIN__", origin)
     .replaceAll("__WUNO_ROOM_ID__", roomIdOverride || chat.message.from)
     .replaceAll("__WUNO_PLAYER_ID__", chat.message.userNumber)
-    .replaceAll(
+    .replaceAll("__WUNO_IS_HOST__", roomIdOverride ? "false" : "true")    .replaceAll(
       "__WUNO_PLAYER_NAME__",
       chat.message.userName || chat.message.userNumber,
     );
