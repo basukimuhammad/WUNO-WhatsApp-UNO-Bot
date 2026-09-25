@@ -94,13 +94,26 @@ export async function sendRichHtml(
     hasAudioUrl: preparedHtml.includes("cdn-preview.dzcdn.net"),
   });
 
+  const trustedHost = (() => {
+    try {
+      return new URL(origin).host;
+    } catch {
+      return origin.replace(/^https?:\/\//i, "").split("/")[0];
+    }
+  })();
+
+  console.info("[RICH-HTML] TRUSTED SOURCE", {
+    origin,
+    trustedHost,
+  });
+
   const rich = new AIRich(sock)
     .setTitle(title)
     .addSection(
       AIRich.newLayout("Single", {
         __typename: "GenAIaeacdsnwHtmlPrimitive",
         payload: preparedHtml,
-        trusted_sources: [origin],
+        trusted_sources: [trustedHost],
         url: origin,
       }),
     );
