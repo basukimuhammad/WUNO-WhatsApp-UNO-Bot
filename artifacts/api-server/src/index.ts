@@ -60,22 +60,35 @@ async function isSafeProxyHost(hostname: string) {
 app.get("/api/spotify/proxy", async (req, res) => {
   const rawUrl = String(req.query.url || "").trim();
   const ref = String(req.query.ref || "").trim();
+  const startedAt = Date.now();
+  logger.info({
+    rawUrl,
+    ref,
+    range: String(req.headers.range || "") || null,
+    userAgent: String(req.headers["user-agent"] || "") || null,
+  }, "[SPOTIFY-PROXY] START");
 
-  if (!rawUrl) return res.status(400).type("text/plain").send("url wajib diisi");
+  if (!rawUrl) {
+    logger.error("[SPOTIFY-PROXY] FAIL missing url");
+    return res.status(400).type("text/plain").send("url wajib diisi");
+  }
 
   let target: URL;
   try {
     target = new URL(rawUrl);
-  } catch {
+  } catch (error) {
+    logger.error({ rawUrl, err: error }, "[SPOTIFY-PROXY] FAIL invalid URL");
     return res.status(400).type("text/plain").send("url tidak valid");
   }
 
   if (target.protocol !== "https:" && target.protocol !== "http:") {
+    logger.error({ rawUrl, protocol: target.protocol }, "[SPOTIFY-PROXY] FAIL protocol");
     return res.status(400).type("text/plain").send("protocol tidak valid");
   }
 
   if (!(await isSafeProxyHost(target.hostname))) {
     logger.warn({ host: target.hostname }, "[SPOTIFY-PROXY] Host ditolak");
+    logger.error({ host: target.hostname }, "[SPOTIFY-PROXY] FAIL host blocked");
     return res.status(403).type("text/plain").send("host tidak diizinkan");
   }
 
@@ -95,18 +108,27 @@ app.get("/api/spotify/proxy", async (req, res) => {
     if (ref) headers.Referer = ref;
     if (range) headers.Range = range;
 
+    logger.info({ target: target.toString(), headers }, "[SPOTIFY-PROXY] FETCH UPSTREAM");
     let upstream = await fetch(target, {
       headers,
       redirect: "follow",
       signal: controller.signal,
     });
 
+    logger.info({
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+      length: upstream.headers.get("content-length"),
+      range: upstream.headers.get("content-range"),
+      finalUrl: upstream.url,
+    }, "[SPOTIFY-PROXY] UPSTREAM RESPONSE");
     if ([400, 401, 403].includes(upstream.status)) {
       const retryHeaders: Record<string, string> = {
         "User-Agent": "Mozilla/5.0",
         Accept: "*/*",
       };
       if (range) retryHeaders.Range = range;
+      logger.warn({ status: upstream.status }, "[SPOTIFY-PROXY] RETRY UPSTREAM");
       upstream = await fetch(target, {
         headers: retryHeaders,
         redirect: "follow",
@@ -114,7 +136,17 @@ app.get("/api/spotify/proxy", async (req, res) => {
       });
     }
 
+    logger.info({
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+      length: upstream.headers.get("content-length"),
+      contentRange: upstream.headers.get("content-range"),
+      acceptRanges: upstream.headers.get("accept-ranges"),
+      finalUrl: upstream.url,
+      elapsedMs: Date.now() - startedAt,
+    }, "[SPOTIFY-PROXY] FINAL UPSTREAM");
     if (!upstream.ok && upstream.status !== 206) {
+      logger.error({ status: upstream.status, body: await upstream.text().catch(() => "") }, "[SPOTIFY-PROXY] FAIL upstream");
       return res.status(502).type("text/plain").send("Upstream HTTP " + upstream.status);
     }
 
@@ -176,9 +208,13 @@ app.get("/api/spotify/proxy", async (req, res) => {
     if (acceptRanges) res.setHeader("Accept-Ranges", acceptRanges);
     else if (contentType.startsWith("audio/")) res.setHeader("Accept-Ranges", "bytes");
 
-    if (!upstream.body) return res.end();
+    if (!upstream.body) {
+      logger.error({ elapsedMs: Date.now() - startedAt }, "[SPOTIFY-PROXY] FAIL empty body");
+      return res.end();
+    }
 
     const { Readable } = await import("node:stream");
+    logger.info({ elapsedMs: Date.now() - startedAt, status: upstream.status }, "[SPOTIFY-PROXY] STREAM START");
     return Readable.fromWeb(upstream.body as any).pipe(res);
   } catch (error) {
     logger.error({ err: error, url: target.toString() }, "[SPOTIFY] Proxy gagal");
