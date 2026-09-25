@@ -240,10 +240,9 @@
 <script>
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('roomId') || window.location.pathname.split('/room/')[1];
-  const playerId = params.get('playerId') || crypto.randomUUID();
+  const playerId = params.get('playerId') || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
   const playerName = params.get('playerName') || 'Pendengar';
-  const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(wsScheme + '://' + window.location.host + '/ws/games?game=spotifylive&room=' + encodeURIComponent(roomId) + '&player=' + encodeURIComponent(playerId) + '&name=' + encodeURIComponent(playerName));
+  const socket = new WebSocket("__WUNO_WS_URL__");
   const emit = (type, data = {}) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type, ...data }));
   const audio = document.getElementById('audio');
   const disc = document.getElementById('disc');
@@ -293,7 +292,7 @@
   });
 
   socket.addEventListener('close', () => {
-    status('Koneksi terputus. Buka ulang room untuk menyambung.');
+    setStatus('Koneksi terputus. Buka ulang room untuk menyambung.');
   });
 
   function renderMembers(members) {
@@ -328,7 +327,7 @@
     listenerCount.textContent = state.listenerCount;
     if (state.current && (!currentTrack || currentTrack.videoId !== state.current.videoId)) {
       currentTrack = state.current;
-      audio.src = `/api/spotify-live/stream/${currentTrack.videoId}`;
+      audio.src = '__WUNO_API_ORIGIN__/api/spotify-live/stream/' + encodeURIComponent(currentTrack.videoId);
       trackInfo.innerHTML = `
         <div class="track-title">${escapeHtml(currentTrack.title)}</div>
         <div class="track-artist">${escapeHtml(currentTrack.artist)}</div>
@@ -373,7 +372,7 @@
     const q = searchInput.value.trim();
     if (!q) return;
     resultsEl.innerHTML = '<div class="section-label">nyari...</div>';
-    const res = await fetch(`/api/spotify-live/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch('__WUNO_API_ORIGIN__/api/spotify-live/search?q=' + encodeURIComponent(q));
     const data = await res.json();
     resultsEl.innerHTML = '';
     data.results.forEach(track => {
