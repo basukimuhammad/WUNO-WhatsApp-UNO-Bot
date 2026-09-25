@@ -24,15 +24,22 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 </div></div>
 <script>
 (function(){
-var audio=document.getElementById("audio"),playButton=document.getElementById("playButton"),cover=document.getElementById("cover"),info=document.getElementById("info"),ws=null,resolving=false,resolved=false,requestId=0,trackId=${trackId},socketUrl=__WUNO_WS_URL__;
+var audio=document.getElementById("audio"),playButton=document.getElementById("playButton"),cover=document.getElementById("cover"),info=document.getElementById("info"),resolving=false,resolved=false,trackId=${trackId},apiOrigin="__WUNO_API_ORIGIN__";
 function setInfo(t){if(info)info.textContent=t}
 function resolve(){
- if(resolving||resolved)return; resolving=true; if(playButton){playButton.disabled=true;playButton.textContent="⏳ Menyiapkan...";} setInfo("⏳ Menyiapkan audio...");
- var rid="spotify-"+Date.now()+"-"+(++requestId);
- try{ws=new WebSocket(socketUrl)}catch(e){resolving=false;if(playButton){playButton.disabled=false;playButton.textContent="▶️ Coba lagi"}setInfo("❌ WebSocket tidak tersedia");return}
- ws.onopen=function(){ws.send(JSON.stringify({type:"spotifyResolve",requestId:rid,id:trackId}))};
- ws.onmessage=function(event){var r;try{r=JSON.parse(event.data)}catch(e){return}if(r.requestId!==rid)return;if(!r.success){resolving=false;setInfo("❌ "+(r.message||"Audio tidak tersedia"));audio.pause();return}if(r.cover)cover.src=r.cover;if(r.title)document.getElementById("title").textContent=r.title;if(r.artist)document.getElementById("artist").textContent=r.artist;audio.src=r.audioUrl;audio.load();resolved=true;resolving=false;setInfo("▶️ Audio siap diputar");audio.play().catch(function(){})};
- ws.onerror=function(){if(!resolved){resolving=false;if(playButton){playButton.disabled=false;playButton.textContent="▶️ Coba lagi"}setInfo("❌ Koneksi server gagal");audio.pause()}};
+ if(resolving||resolved)return;
+ resolving=true;
+ if(playButton){playButton.disabled=true;playButton.textContent="⏳ Menyiapkan...";}
+ setInfo("⏳ Menyiapkan audio...");
+ var url=apiOrigin+"/api/spotify/stream?id="+encodeURIComponent(trackId);
+ audio.src=url;
+ audio.style.display="block";
+ if(playButton)playButton.style.display="none";
+ audio.load();
+ resolved=true;
+ resolving=false;
+ setInfo("▶️ Audio siap diputar");
+ audio.play().catch(function(){setInfo("▶️ Audio siap — tekan Play di kontrol audio")});
 }
 if(playButton)playButton.addEventListener("click",resolve);
 })();
