@@ -4,7 +4,8 @@ import yts from "yt-search";
 import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
-import { logger } from "./lib/logger";\nimport { getSpotifyAudio, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
+import { logger } from "./lib/logger";
+import { getSpotifyAudio, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
