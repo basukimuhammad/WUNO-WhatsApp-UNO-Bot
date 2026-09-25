@@ -1,4 +1,4 @@
-export const SPOTIFY_LIVE_HTML = String.raw\`<!DOCTYPE html>
+export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
