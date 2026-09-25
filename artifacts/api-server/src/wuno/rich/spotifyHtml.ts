@@ -1,3 +1,5 @@
+const SPOTIFY_PLAYER_BUILD = "WUNO-SPOTIFY-2026-09-26-R10";
+
 type SpotifyHtmlTrack = { id: string; title: string; artist: string; album: string; duration: string; thumbnail: string | null; previewUrl: string | null; audioUrl?: string; };
 
 function esc(value: unknown) {
@@ -6,6 +8,7 @@ function esc(value: unknown) {
 
 export function buildSpotifyPlayerHtml(token: string, query: string, tracks: SpotifyHtmlTrack[]) {
   const t = tracks[0];
+  console.info("[SPOTIFY-HTML] BUILD", { version: SPOTIFY_PLAYER_BUILD, trackId: t?.id || null, htmlVersion: "path-proxy-button" });
   if (!t) return '<html><body style="font-family:Arial;text-align:center;padding:30px">🎵 Lagu tidak ditemukan.</body></html>';
   const trackId = JSON.stringify(t.id);
   const initialCover = t.thumbnail
@@ -22,7 +25,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
 <button id="playBtn" type="button">▶ Putar lagu</button>
 <audio id="audio" controls preload="none"></audio>
-<div class="info" id="info">Spotify • siap diputar</div>
+<div class="info" id="info">WUNO-SPOTIFY-2026-09-26-R10</div>
 <script>
 (function () {
   const audio = document.getElementById("audio");
