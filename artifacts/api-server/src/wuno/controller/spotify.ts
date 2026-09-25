@@ -1,7 +1,7 @@
 import type { Chat } from "../lib/Chat";
 import { sendRichHtml } from "../rich/sendHtml";
 import { buildSpotifyPlayerHtml } from "../rich/spotifyHtml";
-import { createSpotifySession, getSpotifyAudio, spotifySearch } from "../spotify";
+import { createSpotifySession, spotifySearch } from "../spotify";
 
 export default async function spotify(chat: Chat) {
   try {
@@ -25,9 +25,6 @@ export default async function spotify(chat: Chat) {
       );
       return;
     }
-
-    // Siapkan dan cache audio pertama sebelum kartu dikirim.
-    await getSpotifyAudio(token, 0);
 
     const html = buildSpotifyPlayerHtml(token, query, tracks.slice(0, 8));
     await sendRichHtml(chat, html, "🎵 WUNO Spotify", "spotify");
