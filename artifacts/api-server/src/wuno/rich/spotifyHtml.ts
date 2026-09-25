@@ -24,7 +24,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 <img class="cover" id="cover" src="${esc(initialCover)}" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
 <button id="playBtn" type="button">▶ Putar lagu</button>
-<audio id="audio" controls preload="none"></audio>
+<audio id="audio" controls preload="metadata" src="${esc("__WUNO_API_ORIGIN__/api/spotify/audio/" + encodeURIComponent(t.id))}"></audio>
 <div class="info" id="info">WUNO-SPOTIFY-2026-09-26-R10</div>
 <script>
 (function () {
