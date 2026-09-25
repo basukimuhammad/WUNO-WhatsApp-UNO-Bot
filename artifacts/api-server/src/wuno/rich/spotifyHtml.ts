@@ -55,7 +55,7 @@ export function buildSpotifyPlayerHtml(
     '<div class="meta"><div class="title">' + esc(t.title) + '</div>' +
     '<div class="artist">' + esc(t.artist || "Unknown Artist") + (t.album ? " • " + esc(t.album) : "") + '</div></div>' +
     '<audio controls preload="metadata" src="' + streamUrl + '"></audio>' +
-    '<div class="info">SpotSaver • Audio langsung dari previewUrl</div>' +
+    '<div class="info">SpotSaver • audio diputar dari server</div>' +
     '</div></div></body></html>';
 }
 
