@@ -27,10 +27,10 @@ export function buildSpotifyPlayerHtml(
     return '<!doctype html><html><body style="font-family:Arial;text-align:center;padding:30px">🎵 Lagu tidak ditemukan.</body></html>';
   }
 
-  const origin = "__WUNO_API_ORIGIN__";
-  const id = encodeURIComponent(t.id);
-  const streamUrl = origin + "/api/spotify/stream?id=" + id;
-  const coverUrl = origin + "/api/spotify/cover?id=" + id;
+  // SpotSaver sudah memberikan URL gambar dan URL audio yang bisa diputar langsung.
+  // Jangan proxy/download dulu di browser; <audio> cukup memakai previewUrl sebagai src.
+  const audioUrl = t.previewUrl || "";
+  const coverUrl = t.thumbnail || "";
 
   return "<!doctype html>" +
     '<html lang="id"><head>' +
@@ -51,11 +51,11 @@ export function buildSpotifyPlayerHtml(
     '<div class="wrap"><div class="card">' +
     '<div class="brand">♫ SPOTIFY</div>' +
     '<div class="query">Hasil untuk: ' + esc(query) + '</div>' +
-    '<img class="cover" src="' + coverUrl + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+    '<img class="cover" src="' + esc(coverUrl) + '" alt="" onerror="this.style.visibility=\'hidden\'"> +
     '<div class="meta"><div class="title">' + esc(t.title) + '</div>' +
     '<div class="artist">' + esc(t.artist || "Unknown Artist") + (t.album ? " • " + esc(t.album) : "") + '</div></div>' +
-    '<audio controls preload="metadata" src="' + streamUrl + '"></audio>' +
-    '<div class="info">SpotSaver • audio diputar dari server</div>' +
+    '<audio controls preload="metadata" src="' + esc(audioUrl) + '"></audio>' +
+    '<div class="info">SpotSaver • previewUrl langsung</div>' +
     '</div></div></body></html>';
 }
 
