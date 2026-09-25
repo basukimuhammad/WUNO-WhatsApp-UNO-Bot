@@ -229,6 +229,201 @@ app.get("/api/spotify/proxy", async (req, res) => {
   }
 });
 
+app.get("/api/spotify/audio/:id", async (req, res) => {
+  const id = String(req.params.id || "").trim();
+  const startedAt = Date.now();
+
+  logger.info({
+    id,
+    range: String(req.headers.range || "") || null,
+    userAgent: String(req.headers["user-agent"] || "") || null,
+  }, "[SPOTIFY-AUDIO-PATH] START");
+
+  if (!id) {
+    logger.error("[SPOTIFY-AUDIO-PATH] FAIL missing id");
+    return res.status(400).type("text/plain").send("id wajib diisi");
+  }
+
+  try {
+    const { track, audioUrl } = await resolveSpotifyHtmlAudio(id);
+    const range = String(req.headers.range || "");
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "*/*",
+      Referer: audioUrl.includes("y2mate") || audioUrl.includes("etacloud")
+        ? "https://y2mate.gs/"
+        : "https://spotsaver.net/",
+    };
+
+    if (range) headers.Range = range;
+
+    logger.info({
+      id,
+      title: track.title,
+      sourceHost: (() => { try { return new URL(audioUrl).host; } catch { return "INVALID_URL"; } })(),
+      sourceLength: audioUrl.length,
+      headers,
+    }, "[SPOTIFY-AUDIO-PATH] FETCH");
+
+    let upstream = await fetch(audioUrl, {
+      headers,
+      redirect: "follow",
+    });
+
+    logger.info({
+      id,
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+      length: upstream.headers.get("content-length"),
+      contentRange: upstream.headers.get("content-range"),
+      finalUrl: upstream.url,
+    }, "[SPOTIFY-AUDIO-PATH] RESPONSE");
+
+    if ([400, 401, 403].includes(upstream.status)) {
+      logger.warn({ id, status: upstream.status }, "[SPOTIFY-AUDIO-PATH] RETRY");
+      upstream = await fetch(audioUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          Accept: "*/*",
+          ...(range ? { Range: range } : {}),
+        },
+        redirect: "follow",
+      });
+      logger.info({
+        id,
+        status: upstream.status,
+        contentType: upstream.headers.get("content-type"),
+        length: upstream.headers.get("content-length"),
+        contentRange: upstream.headers.get("content-range"),
+        finalUrl: upstream.url,
+      }, "[SPOTIFY-AUDIO-PATH] RETRY RESPONSE");
+    }
+
+    if (!upstream.ok && upstream.status !== 206) {
+      const body = await upstream.text().catch(() => "");
+      logger.error({
+        id,
+        status: upstream.status,
+        body: body.slice(0, 500),
+      }, "[SPOTIFY-AUDIO-PATH] FAIL UPSTREAM");
+      return res.status(502).type("text/plain").send("Audio upstream HTTP " + upstream.status);
+    }
+
+    const upstreamType = (upstream.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    const contentType =
+      upstreamType &&
+      upstreamType !== "application/octet-stream" &&
+      upstreamType !== "binary/octet-stream" &&
+      upstreamType !== "text/plain"
+        ? upstreamType
+        : "audio/mpeg";
+
+    res.status(upstream.status === 206 ? 206 : 200);
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Accept-Ranges", upstream.headers.get("accept-ranges") || "bytes");
+
+    const length = upstream.headers.get("content-length");
+    const contentRange = upstream.headers.get("content-range");
+    if (length) res.setHeader("Content-Length", length);
+    if (contentRange) res.setHeader("Content-Range", contentRange);
+
+    if (!upstream.body) {
+      logger.error({ id }, "[SPOTIFY-AUDIO-PATH] FAIL empty body");
+      return res.end();
+    }
+
+    const { Readable } = await import("node:stream");
+    logger.info({
+      id,
+      status: upstream.status,
+      contentType,
+      elapsedMs: Date.now() - startedAt,
+    }, "[SPOTIFY-AUDIO-PATH] STREAM");
+
+    return Readable.fromWeb(upstream.body as any).pipe(res);
+  } catch (error) {
+    logger.error({
+      id,
+      err: error,
+      elapsedMs: Date.now() - startedAt,
+    }, "[SPOTIFY-AUDIO-PATH] EXCEPTION");
+
+    if (!res.headersSent) {
+      return res.status(502).type("text/plain").send(
+        error instanceof Error ? error.message : "Audio proxy gagal",
+      );
+    }
+    return res.end();
+  }
+});
+
+app.get("/api/spotify/cover/:id", async (req, res) => {
+  const id = String(req.params.id || "").trim();
+
+  logger.info({ id }, "[SPOTIFY-COVER-PATH] START");
+
+  try {
+    const track = getSpotifyTrackById(id);
+    if (!track.thumbnail) {
+      logger.warn({ id }, "[SPOTIFY-COVER-PATH] NO THUMBNAIL");
+      return res.status(404).end();
+    }
+
+    const target = new URL(track.thumbnail);
+    logger.info({
+      id,
+      title: track.title,
+      host: target.host,
+      urlLength: track.thumbnail.length,
+    }, "[SPOTIFY-COVER-PATH] FETCH");
+
+    const upstream = await fetch(target, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        Referer: "https://open.spotify.com/",
+      },
+      redirect: "follow",
+    });
+
+    logger.info({
+      id,
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+      length: upstream.headers.get("content-length"),
+      finalUrl: upstream.url,
+    }, "[SPOTIFY-COVER-PATH] RESPONSE");
+
+    if (!upstream.ok) {
+      return res.status(502).type("text/plain").send("Cover upstream HTTP " + upstream.status);
+    }
+
+    res.status(200);
+    res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/jpeg");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+
+    if (!upstream.body) return res.end();
+
+    const { Readable } = await import("node:stream");
+    logger.info({ id }, "[SPOTIFY-COVER-PATH] STREAM");
+    return Readable.fromWeb(upstream.body as any).pipe(res);
+  } catch (error) {
+    logger.error({ id, err: error }, "[SPOTIFY-COVER-PATH] EXCEPTION");
+    if (!res.headersSent) return res.status(502).end();
+    return res.end();
+  }
+});
+
 app.get("/api/spotify/cover", async (req, res) => {
   try {
     const id = String(req.query.id || "").trim();
