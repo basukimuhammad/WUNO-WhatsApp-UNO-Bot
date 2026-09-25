@@ -610,6 +610,46 @@ export async function getSpotifyAudio(
 ): Promise<{ track: Track; buffer: Buffer; mime: string }> {
   return getAudio(token, index);
 }
+\nconst spotifyAudioCache = new Map<string, { buffer: Buffer; mime: string; createdAt: number }>();
+
+export async function getSpotifyAudioById(
+  id: string,
+): Promise<{ track: Track; buffer: Buffer; mime: string }> {
+  const track = getSpotifyTrackById(id);
+  const cached = spotifyAudioCache.get(String(id));
+
+  if (cached && Date.now() - cached.createdAt < 10 * 60 * 1000) {
+    return { track, buffer: cached.buffer, mime: cached.mime };
+  }
+
+  // SpotSaver preview adalah sumber pertama. Jika preview kosong/gagal,
+  // gunakan resolver YouTube Music yang sudah dipakai fitur Spotify biasa.
+  if (track.previewUrl) {
+    try {
+      const audio = await downloadBinary(track.previewUrl, BASE);
+      spotifyAudioCache.set(String(id), { ...audio, createdAt: Date.now() });
+      return { track, ...audio };
+    } catch {
+      // Lanjut ke fallback agar player tetap mendapatkan audio.
+    }
+  }
+
+  const results = await ytmSearch(track.title + " " + track.artist);
+  if (!results.length) {
+    throw new Error("Audio Spotify tidak tersedia");
+  }
+
+  let audio: { buffer: Buffer; mime: string };
+  try {
+    audio = await y2mateGet(results[0].videoId);
+  } catch {
+    audio = await fallbackDownloader(results[0].videoId);
+  }
+
+  spotifyAudioCache.set(String(id), { ...audio, createdAt: Date.now() });
+  return { track, ...audio };
+}
+
 
 export async function sendSpotifyTrack(
   token: string,
