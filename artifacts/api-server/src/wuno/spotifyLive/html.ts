@@ -1,4 +1,4 @@
-export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
+export const SPOTIFY_LIVE_HTML = String.raw\`<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
@@ -236,13 +236,15 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
 
 <audio id="audio"></audio>
 
-<script src="/socket.io/socket.io.js"></script>
+
 <script>
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('roomId') || window.location.pathname.split('/room/')[1];
   const playerId = params.get('playerId') || crypto.randomUUID();
   const playerName = params.get('playerName') || 'Pendengar';
-  const socket = io();
+  const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const socket = new WebSocket(wsScheme + '://' + window.location.host + '/ws/games?game=spotifylive&room=' + encodeURIComponent(roomId) + '&player=' + encodeURIComponent(playerId) + '&name=' + encodeURIComponent(playerName));
+  const emit = (type, data = {}) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type, ...data }));
   const audio = document.getElementById('audio');
   const disc = document.getElementById('disc');
   const discImg = document.getElementById('discImg');
@@ -262,44 +264,36 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
   let isHost = false;
   let currentTrack = null;
 
-  socket.emit('join-room', { roomId, name: 'Pendengar' });
-
-  socket.on('joined', state => {
-    isHost = state.isHost;
-    updateRole();
-    renderMembers(state.members || []);
-    applyState(state);
+  socket.addEventListener('open', () => {
+    emit('join');
   });
 
-  socket.on('you-are-host', () => {
-    isHost = true;
-    updateRole();
+  socket.addEventListener('message', event => {
+    try {
+      const state = JSON.parse(event.data);
+      if (state.type === 'room-chat') {
+        const row = document.createElement('div');
+        row.style.padding = '4px 0';
+        row.innerHTML = '<strong>' + escapeHtml(state.name) + ':</strong> ' + escapeHtml(state.text);
+        chatMessages.appendChild(row);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return;
+      }
+      if (state.type === 'sync') {
+        if (!isHost && Math.abs(audio.currentTime - Number(state.position || 0)) > 2) {
+          audio.currentTime = Number(state.position || 0);
+        }
+        return;
+      }
+      isHost = !!state.isHost;
+      updateRole();
+      renderMembers(state.members || []);
+      applyState(state);
+    } catch {}
   });
 
-  socket.on('state-update', state => {
-    renderMembers(state.members || []);
-    applyState(state);
-  });
-
-  socket.on('member-list', members => renderMembers(members));
-
-  socket.on('room-chat', ({ name, text }) => {
-    const row = document.createElement('div');
-    row.style.padding = '4px 0';
-    row.innerHTML = '<strong>' + escapeHtml(name) + ':</strong> ' + escapeHtml(text);
-    chatMessages.appendChild(row);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  });
-
-  socket.on('listener-count', count => {
-    listenerCount.textContent = count;
-  });
-
-  socket.on('sync-correction', ({ position }) => {
-    if (isHost) return;
-    if (Math.abs(audio.currentTime - position) > 2) {
-      audio.currentTime = position;
-    }
+  socket.addEventListener('close', () => {
+    status('Koneksi terputus. Buka ulang room untuk menyambung.');
   });
 
   function renderMembers(members) {
@@ -310,7 +304,7 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
   function sendChat() {
     const text = chatInput.value.trim();
     if (!text) return;
-    socket.emit('room-chat', { text });
+    emit('room-chat', { text });
     chatInput.value = '';
   }
 
@@ -334,7 +328,7 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
     listenerCount.textContent = state.listenerCount;
     if (state.current && (!currentTrack || currentTrack.videoId !== state.current.videoId)) {
       currentTrack = state.current;
-      audio.src = \\`/api/stream/\\${currentTrack.videoId}\\`;
+      audio.src = \\`/api/spotify-live/stream/\\${currentTrack.videoId}\\`;
       trackInfo.innerHTML = \\`
         <div class="track-title">\\${escapeHtml(currentTrack.title)}</div>
         <div class="track-artist">\\${escapeHtml(currentTrack.artist)}</div>
@@ -362,13 +356,13 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
     const playing = audio.paused;
     if (playing) audio.play().catch(() => {});
     else audio.pause();
-    socket.emit('toggle-play', { isPlaying: playing, position: audio.currentTime });
+    emit('toggle-play', { isPlaying: playing, position: audio.currentTime });
   });
 
   // host ngirim posisi tiap 3 detik biar listener bisa koreksi drift
   setInterval(() => {
     if (isHost && currentTrack && !audio.paused) {
-      socket.emit('sync-tick', { position: audio.currentTime });
+      emit('sync-tick', { position: audio.currentTime });
     }
   }, 3000);
 
@@ -379,7 +373,7 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
     const q = searchInput.value.trim();
     if (!q) return;
     resultsEl.innerHTML = '<div class="section-label">nyari...</div>';
-    const res = await fetch(\\`/api/search?q=\\${encodeURIComponent(q)}\\`);
+    const res = await fetch(\\`/api/spotify-live/search?q=\\${encodeURIComponent(q)}\\`);
     const data = await res.json();
     resultsEl.innerHTML = '';
     data.results.forEach(track => {
@@ -393,7 +387,7 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
         </div>
       \\`;
       item.addEventListener('click', () => {
-        socket.emit('play-track', track);
+        emit('play-track', { track });
         resultsEl.innerHTML = '';
         searchInput.value = '';
       });
@@ -410,4 +404,4 @@ export const SPOTIFY_LIVE_HTML = String.raw`<!DOCTYPE html>
 
 </body>
 </html>
-`;
+\`;
