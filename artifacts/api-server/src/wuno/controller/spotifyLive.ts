@@ -11,7 +11,7 @@ export default async function spotifyLive(chat: Chat) {
     const requestedCode = chat.args[0]?.trim().toUpperCase();
     const room = requestedCode
       ? getSpotifyLiveRoom(requestedCode)
-      : createOrGetSpotifyLiveRoom(chat.message.from);
+      : createOrGetSpotifyLiveRoom(chat.message.from, chat.message.userNumber);
 
     if (!room) {
       await chat.sendToCurrentPerson(
