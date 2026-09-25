@@ -5,7 +5,7 @@ import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { getSpotifyAudio, getSpotifyTrack, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
+import { getSpotifyAudio, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -16,24 +16,75 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/games" });
 
 // --- Spotify biasa ---
-app.get("/api/spotify/search", async (req,res)=>{
-  try{
-    const token=String(req.query.token||"");
-    const q=String(req.query.q||"");
-    const results=await spotifySearch(token,q);
-    res.json({results});
-  }catch(e){
-    logger.error({err:e,q:String(req.query.q||"")},"[SPOTIFY] Search endpoint gagal");
-    res.status(400).json({error:e instanceof Error?e.message:"Search gagal"});
+app.get("/api/spotify/search", async (req, res) => {
+  try {
+    const token = String(req.query.token || "");
+    const q = String(req.query.q || "").trim();
+    const results = await spotifySearch(token, q);
+    res.json({ results });
+  } catch (e) {
+    logger.error({ err: e, q: String(req.query.q || "") }, "[SPOTIFY] Search endpoint gagal");
+    res.status(400).json({ error: e instanceof Error ? e.message : "Search gagal" });
   }
 });
-app.get("/api/spotify/resolve", async (req,res)=>{try{const track=await resolveSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({track:{...track,audioUrl:null}})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Resolve gagal"})}});
-app.get("/api/spotify/cover", async (req,res)=>{try{const track=getSpotifyTrack(String(req.query.token||""),Number(req.query.index));if(!track.thumbnail)return res.status(404).end();const r=await fetch(track.thumbnail,{headers:{"User-Agent":"Mozilla/5.0","Accept":"image/*"}});if(!r.ok)return res.status(404).end();res.setHeader("Content-Type",r.headers.get("content-type")||"image/jpeg");res.setHeader("Cache-Control","public,max-age=300");res.send(Buffer.from(await r.arrayBuffer()))}catch{res.status(404).end()}});
-app.get("/api/spotify/preview", async (req,res)=>{try{const token=String(req.query.token||"");const index=Number(req.query.index);const track=getSpotifyTrack(token,index);if(!track.previewUrl){logger.error({index,title:track.title},"[SPOTIFY] previewUrl kosong");return res.status(404).type("text/plain").send("previewUrl kosong");}const upstream=await fetch(track.previewUrl,{headers:{"User-Agent":"Mozilla/5.0","Accept":"audio/mpeg,audio/*;q=0.9,*/*;q=0.8"}});const contentType=upstream.headers.get("content-type")||"";logger.info({index,title:track.title,status:upstream.status,contentType},"[SPOTIFY] Preview upstream");if(!upstream.ok)throw new Error("Preview HTTP "+upstream.status);res.setHeader("Content-Type",contentType||"audio/mpeg");const len=upstream.headers.get("content-length");if(len)res.setHeader("Content-Length",len);res.setHeader("Cache-Control","public,max-age=60");res.send(Buffer.from(await upstream.arrayBuffer()))}catch(e){logger.error({err:e,index:Number(req.query.index)},"[SPOTIFY] Preview gagal");res.status(502).type("text/plain").send(e instanceof Error?e.message:"Preview gagal")}});
-app.get("/api/spotify/stream", async (req,res)=>{try{const index=Number(req.query.index);const {track,buffer,mime}=await getSpotifyAudio(String(req.query.token||""),index);logger.info({index,title:track.title,bytes:buffer.length,mime},"[SPOTIFY] Stream siap");res.setHeader("Content-Type",mime||"audio/mpeg");res.setHeader("Content-Length",String(buffer.length));res.setHeader("Cache-Control","no-store");res.send(buffer)}catch(e){logger.error({err:e,index:Number(req.query.index)},"[SPOTIFY] Stream gagal");res.status(502).type("text/plain").send(e instanceof Error?e.message:"Stream gagal")}});
-app.get("/api/spotify/download", async (req,res)=>{try{const index=Number(req.query.index);const {track,buffer,mime}=await getSpotifyAudio(String(req.query.token||""),index);const ext=(mime||"audio/mpeg").includes("mp4")?"m4a":"mp3";const name=track.title.replace(/[<>:"/\\|?*\\x00-\\x1F]/g," ").slice(0,120)+"."+ext;logger.info({index,title:track.title,bytes:buffer.length,mime},"[SPOTIFY] Download siap");res.setHeader("Content-Type",mime||"audio/mpeg");res.setHeader("Content-Disposition",'attachment; filename="'+name.replace(/"/g,"")+'"');res.setHeader("Content-Length",String(buffer.length));res.send(buffer)}catch(e){logger.error({err:e,index:Number(req.query.index)},"[SPOTIFY] Download gagal");res.status(502).type("text/plain").send(e instanceof Error?e.message:"Gagal mengunduh audio")}});
-app.post("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({success:true,...result})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Gagal mengirim audio"})}});
-app.get("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.type("text/plain").send("Audio berhasil dikirim ke WhatsApp: "+result.title)}catch(e){res.status(400).type("text/plain").send(e instanceof Error?e.message:"Gagal mengirim audio")}});
+
+app.get("/api/spotify/stream", async (req, res) => {
+  try {
+    const id = String(req.query.id || "");
+    const track = getSpotifyTrackById(id);
+
+    if (!track.previewUrl) {
+      logger.error({ id, title: track.title }, "[SPOTIFY] previewUrl kosong");
+      return res.status(404).type("text/plain").send("previewUrl kosong");
+    }
+
+    const upstream = await fetch(track.previewUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
+      },
+    });
+
+    logger.info({
+      id,
+      title: track.title,
+      status: upstream.status,
+      contentType: upstream.headers.get("content-type"),
+    }, "[SPOTIFY] Preview upstream");
+
+    if (!upstream.ok) {
+      throw new Error("Preview HTTP " + upstream.status);
+    }
+
+    res.setHeader("Content-Type", upstream.headers.get("content-type") || "audio/mpeg");
+    const len = upstream.headers.get("content-length");
+    if (len) res.setHeader("Content-Length", len);
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (e) {
+    logger.error({ err: e, id: String(req.query.id || "") }, "[SPOTIFY] Stream gagal");
+    res.status(502).type("text/plain").send(e instanceof Error ? e.message : "Stream gagal");
+  }
+});
+
+app.get("/api/spotify/cover", async (req, res) => {
+  try {
+    const id = String(req.query.id || "");
+    const track = getSpotifyTrackById(id);
+    if (!track.thumbnail) return res.status(404).end();
+
+    const upstream = await fetch(track.thumbnail, {
+      headers: { "User-Agent": "Mozilla/5.0", Accept: "image/*" },
+    });
+    if (!upstream.ok) return res.status(404).end();
+
+    res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch {
+    res.status(404).end();
+  }
+});
 
 
 type Player = { id: string; name: string; ws: WebSocket; mark: "X"|"O"|"1"|"2" };
@@ -164,46 +215,25 @@ wss.on("connection",(ws,req)=>{
   const name=decodeURIComponent(u.searchParams.get("name")||"Pemain");
   if (game === "spotify") {
     ws.on("message", async raw => {
-      let action:any;
+      let action: any;
       try { action = JSON.parse(raw.toString()); } catch { return; }
+
       const requestId = String(action?.requestId || "");
       if (!requestId) return;
 
       try {
         if (action.type === "spotifyResolve") {
-          const token = String(action.token || "");
-          const indexValue = Number(action.index);
-          if (!Number.isInteger(indexValue) || indexValue < 0) {
-            throw new Error("Index lagu tidak valid.");
-          }
-          const track = await resolveSpotifyTrack(token, indexValue);
-          ws.send(JSON.stringify({
-            type: "spotifyActionResult",
-            requestId,
-            success: true,
-            audioUrl:
-              "/api/spotify/stream?token=" +
-              encodeURIComponent(token) +
-              "&index=" +
-              encodeURIComponent(String(indexValue)),
-            cover: track.thumbnail || null,
-          }));
-          return;
-        }
+          const id = String(action.id || "");
+          const track = getSpotifyTrackById(id);
 
-        if (action.type === "spotifyDownload") {
-          const token = String(action.token || "");
-          const indexValue = Number(action.index);
-          if (!Number.isInteger(indexValue) || indexValue < 0) {
-            throw new Error("Index lagu tidak valid.");
-          }
-          const result = await sendSpotifyTrack(token, indexValue);
           ws.send(JSON.stringify({
             type: "spotifyActionResult",
             requestId,
             success: true,
-            message: "Audio sudah dikirim ke WhatsApp.",
-            title: result.title,
+            audioUrl: "/api/spotify/stream?id=" + encodeURIComponent(id),
+            cover: track.thumbnail || null,
+            title: track.title,
+            artist: track.artist,
           }));
           return;
         }
