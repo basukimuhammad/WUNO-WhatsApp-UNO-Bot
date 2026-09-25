@@ -1,4 +1,6 @@
 import { createServer } from "node:http";
+import { lookup as dnsLookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { WebSocketServer, WebSocket } from "ws";
 import yts from "yt-search";
 import ytdl from "ytdl-core";
@@ -16,73 +18,139 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/games" });
 
 // --- Spotify biasa ---
-app.get("/api/spotify/search", async (req, res) => {
-  try {
-    const token = String(req.query.token || "");
-    const q = String(req.query.q || "").trim();
-    const results = await spotifySearch(token, q);
-    res.json({ results });
-  } catch (e) {
-    logger.error({ err: e, q: String(req.query.q || "") }, "[SPOTIFY] Search endpoint gagal");
-    res.status(400).json({ error: e instanceof Error ? e.message : "Search gagal" });
+function isPrivateIp(ip: string) {
+  const type = isIP(ip);
+  if (type === 4) {
+    const [a, b] = ip.split(".").map(Number);
+    return (
+      a === 10 ||
+      a === 127 ||
+      a === 0 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
   }
-});
+  if (type === 6) {
+    const lower = ip.toLowerCase();
+    return (
+      lower === "::1" ||
+      lower.startsWith("fc") ||
+      lower.startsWith("fd") ||
+      lower.startsWith("fe8") ||
+      lower.startsWith("fe9") ||
+      lower.startsWith("fea") ||
+      lower.startsWith("feb")
+    );
+  }
+  return true;
+}
 
-app.get("/api/spotify/stream", async (req, res) => {
+async function isSafeProxyHost(hostname: string) {
+  if (isIP(hostname)) return !isPrivateIp(hostname);
   try {
-    const id = String(req.query.id || "").trim();
-    if (!id) return res.status(400).type("text/plain").send("id wajib diisi");
+    const results = await dnsLookup(hostname, { all: true, verbatim: true });
+    return results.length > 0 && results.every((item) => !isPrivateIp(item.address));
+  } catch {
+    return false;
+  }
+}
 
-    const { track, audioUrl } = await resolveSpotifyHtmlAudio(id);
-    const range = String(req.headers.range || "");
-    const upstream = await fetch(audioUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "*/*",
-        Referer: audioUrl.includes("y2mate") || audioUrl.includes("etacloud")
-          ? "https://y2mate.gs/"
-          : "https://spotsaver.net/",
-        ...(range ? { Range: range } : {}),
-      },
+app.get("/api/spotify/proxy", async (req, res) => {
+  const rawUrl = String(req.query.url || "").trim();
+  const ref = String(req.query.ref || "").trim();
+
+  if (!rawUrl) return res.status(400).type("text/plain").send("url wajib diisi");
+
+  let target: URL;
+  try {
+    target = new URL(rawUrl);
+  } catch {
+    return res.status(400).type("text/plain").send("url tidak valid");
+  }
+
+  if (target.protocol !== "https:" && target.protocol !== "http:") {
+    return res.status(400).type("text/plain").send("protocol tidak valid");
+  }
+
+  if (!(await isSafeProxyHost(target.hostname))) {
+    return res.status(403).type("text/plain").send("host tidak diizinkan");
+  }
+
+  const range = String(req.headers.range || "");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  res.on("close", () => {
+    if (!res.writableEnded) controller.abort();
+  });
+
+  try {
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "*/*",
+    };
+
+    if (ref) headers.Referer = ref;
+    if (range) headers.Range = range;
+
+    let upstream = await fetch(target, {
+      headers,
       redirect: "follow",
+      signal: controller.signal,
     });
 
-    logger.info({
-      id,
-      title: track.title,
-      status: upstream.status,
-      contentType: upstream.headers.get("content-type"),
-      contentLength: upstream.headers.get("content-length"),
-      range,
-    }, "[SPOTIFY] Audio upstream");
-
-    if (!upstream.ok && upstream.status !== 206) {
-      throw new Error("Audio upstream HTTP " + upstream.status);
+    if ([400, 401, 403].includes(upstream.status)) {
+      const retryHeaders: Record<string, string> = {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "*/*",
+      };
+      if (range) retryHeaders.Range = range;
+      upstream = await fetch(target, {
+        headers: retryHeaders,
+        redirect: "follow",
+        signal: controller.signal,
+      });
     }
 
+    if (!upstream.ok && upstream.status !== 206) {
+      return res.status(502).type("text/plain").send("Upstream HTTP " + upstream.status);
+    }
+
+    const contentType =
+      (upstream.headers.get("content-type") || "").split(";")[0] ||
+      (/[?&]f=mp3(?:&|$)/i.test(rawUrl) ? "audio/mpeg" : "application/octet-stream");
+
     res.status(upstream.status === 206 ? 206 : 200);
-    res.setHeader(
-      "Content-Type",
-      (upstream.headers.get("content-type") || "audio/mpeg").split(";")[0],
-    );
-    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
+    res.setHeader("Cache-Control", contentType.startsWith("image/") ? "public, max-age=3600" : "no-store");
 
     const length = upstream.headers.get("content-length");
     const contentRange = upstream.headers.get("content-range");
+    const acceptRanges = upstream.headers.get("accept-ranges");
+
     if (length) res.setHeader("Content-Length", length);
     if (contentRange) res.setHeader("Content-Range", contentRange);
+    if (acceptRanges) res.setHeader("Accept-Ranges", acceptRanges);
+    else if (contentType.startsWith("audio/")) res.setHeader("Accept-Ranges", "bytes");
 
     if (!upstream.body) return res.end();
 
     const { Readable } = await import("node:stream");
     return Readable.fromWeb(upstream.body as any).pipe(res);
-  } catch (e) {
-    logger.error({ err: e, id: String(req.query.id || "") }, "[SPOTIFY] Stream gagal");
-    return res.status(502).type("text/plain").send(
-      e instanceof Error ? e.message : "Stream gagal",
-    );
+  } catch (error) {
+    logger.error({ err: error, url: target.toString() }, "[SPOTIFY] Proxy gagal");
+    if (!res.headersSent) {
+      return res.status(502).type("text/plain").send(
+        error instanceof Error ? error.message : "Proxy gagal",
+      );
+    }
+    return res.end();
+  } finally {
+    clearTimeout(timer);
   }
 });
 
@@ -92,31 +160,25 @@ app.get("/api/spotify/cover", async (req, res) => {
     const track = getSpotifyTrackById(id);
     if (!track.thumbnail) return res.status(404).end();
 
-    const upstream = await fetch(track.thumbnail, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        Referer: "https://open.spotify.com/",
-      },
-    });
+    const target = new URL("/api/spotify/proxy", "http://localhost");
+    target.searchParams.set("url", track.thumbnail);
+    target.searchParams.set("ref", "https://open.spotify.com/");
 
-    if (!upstream.ok) {
-      logger.error({ id, status: upstream.status }, "[SPOTIFY] Thumbnail upstream gagal");
-      return res.status(404).end();
-    }
+    const upstream = await fetch(
+      "http://" + String(req.headers.host || "localhost") + target.pathname + target.search,
+    );
 
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/jpeg");
-    res.setHeader("Content-Length", String(buffer.length));
-    res.setHeader("Cache-Control", "public, max-age=300");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    return res.send(buffer);
-  } catch (e) {
-    logger.error({ err: e, id: String(req.query.id || "") }, "[SPOTIFY] Thumbnail gagal");
+    res.status(upstream.status);
+    const contentType = upstream.headers.get("content-type");
+    if (contentType) res.setHeader("Content-Type", contentType);
+    const { Readable } = await import("node:stream");
+    if (upstream.body) return Readable.fromWeb(upstream.body as any).pipe(res);
+    return res.end();
+  } catch (error) {
+    logger.error({ err: error }, "[SPOTIFY] Thumbnail gagal");
     return res.status(404).end();
   }
 });
-
 
 type Player = { id: string; name: string; ws: WebSocket; mark: "X"|"O"|"1"|"2" };
 type Room = { game: string; players: Player[]; board: string[]; turn: string; winner: string };
@@ -255,14 +317,25 @@ wss.on("connection",(ws,req)=>{
       try {
         if (action.type === "spotifyResolve") {
           const id = String(action.id || "");
-          const track = getSpotifyTrackById(id);
+          const { track, audioUrl } = await resolveSpotifyHtmlAudio(id);
+
+          const proxyAudio =
+            "/api/spotify/proxy?url=" +
+            encodeURIComponent(audioUrl) +
+            "&ref=" +
+            encodeURIComponent("https://y2mate.gs/");
+
+          const proxyCover = track.thumbnail
+            ? "/api/spotify/proxy?url=" + encodeURIComponent(track.thumbnail) +
+              "&ref=" + encodeURIComponent("https://open.spotify.com/")
+            : null;
 
           ws.send(JSON.stringify({
             type: "spotifyActionResult",
             requestId,
             success: true,
-            audioUrl: "/api/spotify/stream?id=" + encodeURIComponent(id),
-            cover: track.thumbnail || null,
+            audioUrl: proxyAudio,
+            cover: proxyCover,
             title: track.title,
             artist: track.artist,
           }));
