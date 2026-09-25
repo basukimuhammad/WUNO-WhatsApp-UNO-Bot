@@ -610,7 +610,8 @@ export async function getSpotifyAudio(
 ): Promise<{ track: Track; buffer: Buffer; mime: string }> {
   return getAudio(token, index);
 }
-\nconst spotifyAudioCache = new Map<string, { buffer: Buffer; mime: string; createdAt: number }>();
+
+const spotifyAudioCache = new Map<string, { buffer: Buffer; mime: string; createdAt: number }>();
 
 export async function getSpotifyAudioById(
   id: string,
