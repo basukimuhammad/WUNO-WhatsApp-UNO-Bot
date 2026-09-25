@@ -5,7 +5,7 @@ import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { getSpotifyAudio, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
+import { getSpotifyAudio, getSpotifyTrack, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -28,7 +28,7 @@ app.get("/api/spotify/search", async (req,res)=>{
   }
 });
 app.get("/api/spotify/resolve", async (req,res)=>{try{const track=await resolveSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({track:{...track,audioUrl:null}})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Resolve gagal"})}});
-app.get("/api/spotify/cover", async (req,res)=>{try{const token=String(req.query.token||"");const index=Number(req.query.index);const track=await resolveSpotifyTrack(token,index);if(!track.thumbnail)return res.status(404).end();const r=await fetch(track.thumbnail,{headers:{"User-Agent":"Mozilla/5.0","Accept":"image/*"}});if(!r.ok)return res.status(404).end();res.setHeader("Content-Type",r.headers.get("content-type")||"image/jpeg");res.setHeader("Cache-Control","public,max-age=300");res.send(Buffer.from(await r.arrayBuffer()))}catch{res.status(404).end()}});
+app.get("/api/spotify/cover", async (req,res)=>{try{const track=getSpotifyTrack(String(req.query.token||""),Number(req.query.index));if(!track.thumbnail)return res.status(404).end();const r=await fetch(track.thumbnail,{headers:{"User-Agent":"Mozilla/5.0","Accept":"image/*"}});if(!r.ok)return res.status(404).end();res.setHeader("Content-Type",r.headers.get("content-type")||"image/jpeg");res.setHeader("Cache-Control","public,max-age=300");res.send(Buffer.from(await r.arrayBuffer()))}catch{res.status(404).end()}});
 app.get("/api/spotify/stream", async (req,res)=>{try{const {track,buffer}=await getSpotifyAudio(String(req.query.token||""),Number(req.query.index));res.setHeader("Content-Type","audio/mpeg");res.setHeader("Content-Length",String(buffer.length));res.setHeader("Cache-Control","no-store");res.send(buffer)}catch{res.status(400).end()}});
 app.post("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.json({success:true,...result})}catch(e){res.status(400).json({error:e instanceof Error?e.message:"Gagal mengirim audio"})}});
 app.get("/api/spotify/send", async (req,res)=>{try{const result=await sendSpotifyTrack(String(req.query.token||""),Number(req.query.index));res.type("text/plain").send("Audio berhasil dikirim ke WhatsApp: "+result.title)}catch(e){res.status(400).type("text/plain").send(e instanceof Error?e.message:"Gagal mengirim audio")}});
