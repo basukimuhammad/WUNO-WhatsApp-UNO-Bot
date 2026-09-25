@@ -11,7 +11,8 @@ export interface SpotifyLiveTrack {
 export interface SpotifyLiveMember {
   id: string;
   name: string;
-  ws: WebSocket;
+  ws?: WebSocket;
+  lastSeen: number;
 }
 
 export interface SpotifyLiveRoom {
@@ -24,6 +25,7 @@ export interface SpotifyLiveRoom {
   position: number;
   updatedAt: number;
   createdAt: number;
+  chat: Array<{ id: string; name: string; text: string; at: number }>;
 }
 
 const rooms = new Map<string, SpotifyLiveRoom>();
@@ -59,6 +61,7 @@ export function createOrGetSpotifyLiveRoom(ownerChatId: string) {
     position: 0,
     updatedAt: Date.now(),
     createdAt: Date.now(),
+    chat: [],
   };
 
   rooms.set(code, room);
@@ -72,7 +75,40 @@ export function getSpotifyLiveRoom(code: string) {
   return rooms.get(code.trim().toUpperCase());
 }
 
+function pruneMembers(room: SpotifyLiveRoom) {
+  const cutoff = Date.now() - 45_000;
+  for (const [id, member] of room.members) {
+    if (member.lastSeen < cutoff) room.members.delete(id);
+  }
+  if (room.hostId && !room.members.has(room.hostId)) {
+    room.hostId = room.members.keys().next().value ?? null;
+  }
+}
+
+export function touchSpotifyLiveMember(
+  room: SpotifyLiveRoom,
+  memberId: string,
+  name?: string,
+) {
+  const existing = room.members.get(memberId);
+  if (existing) {
+    existing.lastSeen = Date.now();
+    if (name?.trim()) existing.name = name.trim().slice(0, 60);
+    return existing;
+  }
+
+  const member: SpotifyLiveMember = {
+    id: memberId,
+    name: name?.trim().slice(0, 60) || "Pendengar",
+    lastSeen: Date.now(),
+  };
+  room.members.set(memberId, member);
+  if (!room.hostId) room.hostId = memberId;
+  return member;
+}
+
 export function roomState(room: SpotifyLiveRoom, me?: string, message?: string) {
+  pruneMembers(room);
   return {
     game: "spotifylive",
     room: room.code,
@@ -90,6 +126,7 @@ export function roomState(room: SpotifyLiveRoom, me?: string, message?: string) 
     })),
     isHost: me ? room.hostId === me : false,
     message: message ?? "",
+    chat: room.chat.slice(-30),
   };
 }
 
@@ -109,6 +146,7 @@ export function joinSpotifyLiveRoom(
   room: SpotifyLiveRoom,
   member: SpotifyLiveMember,
 ) {
+  member.lastSeen = Date.now();
   room.members.set(member.id, member);
 
   if (!room.hostId) {
@@ -149,6 +187,25 @@ export function leaveSpotifyLiveRoom(room: SpotifyLiveRoom, memberId: string) {
 
 export function spotifyLiveRoomIsHost(room: SpotifyLiveRoom, memberId: string) {
   return room.hostId === memberId;
+}
+
+export function addSpotifyLiveChat(
+  room: SpotifyLiveRoom,
+  memberId: string,
+  text: string,
+) {
+  const member = room.members.get(memberId);
+  if (!member) return;
+  const clean = text.trim().slice(0, 300);
+  if (!clean) return;
+  room.chat.push({
+    id: crypto.randomUUID(),
+    name: member.name,
+    text: clean,
+    at: Date.now(),
+  });
+  if (room.chat.length > 50) room.chat.splice(0, room.chat.length - 50);
+  room.updatedAt = Date.now();
 }
 
 export function setSpotifyLiveTrack(
