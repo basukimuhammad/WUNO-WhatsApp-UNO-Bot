@@ -62,20 +62,32 @@ app.get("/api/spotify/stream", async (req, res) => {
 
 app.get("/api/spotify/cover", async (req, res) => {
   try {
-    const id = String(req.query.id || "");
+    const id = String(req.query.id || "").trim();
     const track = getSpotifyTrackById(id);
     if (!track.thumbnail) return res.status(404).end();
 
     const upstream = await fetch(track.thumbnail, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "image/*" },
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        Referer: "https://open.spotify.com/",
+      },
     });
-    if (!upstream.ok) return res.status(404).end();
 
+    if (!upstream.ok) {
+      logger.error({ id, status: upstream.status }, "[SPOTIFY] Thumbnail upstream gagal");
+      return res.status(404).end();
+    }
+
+    const buffer = Buffer.from(await upstream.arrayBuffer());
     res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/jpeg");
+    res.setHeader("Content-Length", String(buffer.length));
     res.setHeader("Cache-Control", "public, max-age=300");
-    res.send(Buffer.from(await upstream.arrayBuffer()));
-  } catch {
-    res.status(404).end();
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return res.send(buffer);
+  } catch (e) {
+    logger.error({ err: e, id: String(req.query.id || "") }, "[SPOTIFY] Thumbnail gagal");
+    return res.status(404).end();
   }
 });
 
