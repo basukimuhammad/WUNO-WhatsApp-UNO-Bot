@@ -27,7 +27,27 @@ export default async function spotify(chat: Chat) {
     }
 
     const firstTrack = tracks[0]!;
+    chat.logger.info({
+      query,
+      trackId: firstTrack.id,
+      title: firstTrack.title,
+      artist: firstTrack.artist,
+      thumbnail: firstTrack.thumbnail,
+      previewUrl: firstTrack.previewUrl,
+    }, "[SPOTIFY] SEARCH RESULT");
     const resolved = await resolveSpotifyHtmlAudio(String(firstTrack.id));
+    chat.logger.info({
+      trackId: firstTrack.id,
+      title: resolved.track.title,
+      audioHost: (() => { try { return new URL(resolved.audioUrl).host; } catch { return "INVALID_URL"; } })(),
+      audioProtocol: (() => { try { return new URL(resolved.audioUrl).protocol; } catch { return "INVALID_URL"; } })(),
+      audioLength: resolved.audioUrl.length,
+    }, "[SPOTIFY] AUDIO RESOLVED");
+
+    chat.logger.info({
+      trackId: firstTrack.id,
+      originHint: process.env.PUBLIC_GAME_ORIGIN || process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN || null,
+    }, "[SPOTIFY] BUILDING RICH HTML");
 
     const html = buildSpotifyPlayerHtml(
       token,
@@ -41,7 +61,16 @@ export default async function spotify(chat: Chat) {
       ],
     );
 
+    chat.logger.info({
+      trackId: firstTrack.id,
+      htmlLength: html.length,
+      hasAudioMarker: html.includes("api/spotify"),
+      hasTrackId: html.includes(String(firstTrack.id)),
+    }, "[SPOTIFY] SENDING RICH HTML");
+
     await sendRichHtml(chat, html, "🎵 WUNO Spotify", "spotify");
+
+    chat.logger.info({ trackId: firstTrack.id }, "[SPOTIFY] RICH HTML SENT");
   } catch (error) {
     chat.logger.error({ err: error }, "[SPOTIFY] Gagal membuat player");
     await chat.sendToCurrentPerson(
