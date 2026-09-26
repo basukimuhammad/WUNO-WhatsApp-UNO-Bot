@@ -705,6 +705,95 @@ async function getAudio(
   };
 }
 
+export async function getSpotifyRichMedia(id: string): Promise<{
+  track: Track;
+  audioUrl: string;
+  audioDataUrl: string;
+  coverDataUrl: string | null;
+}> {
+  const resolved = await resolveSpotifyHtmlAudio(id);
+
+  console.info("[SPOTIFY-RICH-MEDIA] AUDIO FETCH", {
+    id: String(id),
+    host: (() => {
+      try { return new URL(resolved.audioUrl).host; } catch { return "INVALID_URL"; }
+    })(),
+    urlLength: resolved.audioUrl.length,
+  });
+
+  const audio = await downloadBinary(resolved.audioUrl, "https://spotsaver.net/");
+  const audioDataUrl =
+    "data:" + (audio.mime || "audio/mpeg") + ";base64," +
+    audio.buffer.toString("base64");
+
+  let coverDataUrl: string | null = null;
+
+  if (resolved.track.thumbnail) {
+    try {
+      console.info("[SPOTIFY-RICH-MEDIA] COVER FETCH", {
+        id: String(id),
+        host: (() => {
+          try { return new URL(resolved.track.thumbnail!).host; } catch { return "INVALID_URL"; }
+        })(),
+      });
+
+      const coverResponse = await fetch(resolved.track.thumbnail, {
+        headers: {
+          "User-Agent": UA,
+          Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          Referer: "https://open.spotify.com/",
+        },
+      });
+
+      if (coverResponse.ok) {
+        const coverBuffer = Buffer.from(await coverResponse.arrayBuffer());
+        const coverMime = String(
+          coverResponse.headers.get("content-type") || "image/jpeg",
+        ).split(";")[0];
+
+        coverDataUrl =
+          "data:" + coverMime + ";base64;" +
+          coverBuffer.toString("base64");
+
+        // Correct the separator if the content type was followed by ';base64;'.
+        coverDataUrl =
+          "data:" + coverMime + ";base64," + coverBuffer.toString("base64");
+
+        console.info("[SPOTIFY-RICH-MEDIA] COVER READY", {
+          id: String(id),
+          bytes: coverBuffer.length,
+          mime: coverMime,
+        });
+      } else {
+        console.warn("[SPOTIFY-RICH-MEDIA] COVER HTTP", {
+          id: String(id),
+          status: coverResponse.status,
+        });
+      }
+    } catch (error) {
+      console.warn("[SPOTIFY-RICH-MEDIA] COVER FAILED", {
+        id: String(id),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  console.info("[SPOTIFY-RICH-MEDIA] AUDIO READY", {
+    id: String(id),
+    bytes: audio.buffer.length,
+    mime: audio.mime,
+    dataUrlLength: audioDataUrl.length,
+    coverEmbedded: Boolean(coverDataUrl),
+  });
+
+  return {
+    track: resolved.track,
+    audioUrl: resolved.audioUrl,
+    audioDataUrl,
+    coverDataUrl,
+  };
+}
+
 export async function getSpotifyAudio(
   token: string,
   index: number,
