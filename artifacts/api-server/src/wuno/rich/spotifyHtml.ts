@@ -1,6 +1,6 @@
 const SPOTIFY_PLAYER_BUILD = "WUNO-SPOTIFY-2026-09-26-R10";
 
-type SpotifyHtmlTrack = { id: string; title: string; artist: string; album: string; duration: string; thumbnail: string | null; previewUrl: string | null; audioUrl?: string; };
+type SpotifyHtmlTrack = { id: string; title: string; artist: string; album: string; duration: string; thumbnail: string | null; previewUrl: string | null; audioUrl?: string; audioDataUrl?: string; coverDataUrl?: string | null; };
 
 function esc(value: unknown) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -12,7 +12,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   console.info("[SPOTIFY-HTML] BUILD", {
     version: SPOTIFY_PLAYER_BUILD,
     trackId: t?.id || null,
-    htmlVersion: "hirobot-addhtml-r12",
+    htmlVersion: "embedded-media-r13",
   });
 
   if (!t) {
@@ -20,19 +20,8 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   }
 
   const trackId = String(t.id);
-  const coverUrl = t.thumbnail
-    ? "__WUNO_API_ORIGIN__/api/spotify/proxy?url=" +
-      encodeURIComponent(t.thumbnail) +
-      "&ref=" +
-      encodeURIComponent("https://open.spotify.com/")
-    : "";
-
-  const audioUrl = t.audioUrl
-    ? "__WUNO_API_ORIGIN__/api/spotify/proxy?url=" +
-      encodeURIComponent(t.audioUrl) +
-      "&ref=" +
-      encodeURIComponent("https://spotsaver.net/")
-    : "";
+  const coverUrl = t.coverDataUrl || "";
+  const audioUrl = t.audioDataUrl || "";
 
   return `<style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -58,8 +47,8 @@ audio{display:block;width:100%;margin-top:18px}
       <div class="title">${esc(t.title)}</div>
       <div class="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div>
     </div>
-    <audio controls preload="none" src="${esc(audioUrl)}"></audio>
-    <div class="status">Spotify • preview melalui server WUNO</div>
+    <audio controls preload="metadata" src="${esc(audioUrl)}"></audio>
+    <div class="status">Spotify • preview tertanam di Rich HTML</div>
   </div>
 </div>`;
 }
