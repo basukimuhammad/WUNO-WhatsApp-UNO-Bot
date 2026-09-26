@@ -1,7 +1,7 @@
 import type { Chat } from "../lib/Chat";
 import { sendRichHtml } from "../rich/sendHtml";
 import { buildSpotifyPlayerHtml } from "../rich/spotifyHtml";
-import { createSpotifySession, getSpotifyRichMedia, spotifySearch } from "../spotify";
+import { createSpotifySession, resolveSpotifyHtmlAudio, spotifySearch } from "../spotify";
 
 export default async function spotify(chat: Chat) {
   try {
@@ -35,16 +35,14 @@ export default async function spotify(chat: Chat) {
       thumbnail: firstTrack.thumbnail,
       previewUrl: firstTrack.previewUrl,
     }, "[SPOTIFY] SEARCH RESULT");
-    const resolved = await getSpotifyRichMedia(String(firstTrack.id));
+    const resolved = await resolveSpotifyHtmlAudio(String(firstTrack.id));
     chat.logger.info({
       trackId: firstTrack.id,
       title: resolved.track.title,
       audioHost: (() => { try { return new URL(resolved.audioUrl).host; } catch { return "INVALID_URL"; } })(),
       audioProtocol: (() => { try { return new URL(resolved.audioUrl).protocol; } catch { return "INVALID_URL"; } })(),
       audioUrlLength: resolved.audioUrl.length,
-      audioDataUrlLength: resolved.audioDataUrl.length,
-      coverEmbedded: Boolean(resolved.coverDataUrl),
-    }, "[SPOTIFY] AUDIO EMBEDDED");
+    }, "[SPOTIFY] AUDIO URL READY");
 
     chat.logger.info({
       trackId: firstTrack.id,
@@ -59,8 +57,6 @@ export default async function spotify(chat: Chat) {
           ...firstTrack,
           id: String(firstTrack.id),
           audioUrl: resolved.audioUrl,
-          audioDataUrl: resolved.audioDataUrl,
-          coverDataUrl: resolved.coverDataUrl,
         },
       ],
     );
