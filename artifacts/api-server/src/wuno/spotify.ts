@@ -431,6 +431,84 @@ async function y2mateGet(videoId: string): Promise<{ buffer: Buffer; mime: strin
   throw new Error("y2mate audio tidak tersedia");
 }
 
+async function fallbackAudioUrl(videoId: string): Promise<string> {
+  const videoUrl = "https://www.youtube.com/watch?v=" + videoId;
+  const errors: string[] = [];
+
+  console.info("[SPOTIFY-FALLBACK-URL] START", { videoId });
+
+  try {
+    const data = await requestJson(
+      "https://ytdlpyton.nvlgroup.my.id/download/audio?url=" +
+        encodeURIComponent(videoUrl) +
+        "&mode=url",
+      {},
+      45000,
+    );
+    if (!data?.download_url) throw new Error("YTDLPyton URL kosong");
+    console.info("[SPOTIFY-FALLBACK-URL] YTDLPYTON OK", { videoId, url: String(data.download_url) });
+    return String(data.download_url);
+  } catch (error) {
+    errors.push("YTDLPyton: " + (error instanceof Error ? error.message : String(error)));
+  }
+
+  try {
+    const data = await requestJson(
+      "https://api.nekolabs.my.id/downloader/youtube/v1?url=" +
+        encodeURIComponent(videoUrl) +
+        "&format=mp3",
+      {},
+      45000,
+    );
+    const url = data?.result?.downloadUrl;
+    if (!data?.success || !url) throw new Error("NekoLabs URL kosong");
+    console.info("[SPOTIFY-FALLBACK-URL] NEKOLABS OK", { videoId, url: String(url) });
+    return String(url);
+  } catch (error) {
+    errors.push("NekoLabs: " + (error instanceof Error ? error.message : String(error)));
+  }
+
+  try {
+    const api = "https://p.savenow.to";
+    const key = "dfcb6d76f2f6a9894gjkege8a4ab232222";
+    const init = await requestJson(
+      api +
+        "/ajax/download.php?copyright=0&format=mp3&url=" +
+        encodeURIComponent(videoUrl) +
+        "&api=" +
+        encodeURIComponent(key),
+      {
+        headers: {
+          Referer: "https://p.savenow.to/",
+          Origin: "https://p.savenow.to/",
+        },
+      },
+      30000,
+    );
+
+    if (!init?.success || !init?.progress_url) {
+      throw new Error("SaveNow gagal memulai");
+    }
+
+    for (let i = 0; i < 30; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      const result = await requestJson(String(init.progress_url), {}, 30000);
+      if (result?.success === -1) throw new Error("SaveNow gagal");
+      if (result?.download_url) {
+        console.info("[SPOTIFY-FALLBACK-URL] SAVENOW OK", { videoId, url: String(result.download_url) });
+        return String(result.download_url);
+      }
+    }
+
+    throw new Error("SaveNow timeout");
+  } catch (error) {
+    errors.push("SaveNow: " + (error instanceof Error ? error.message : String(error)));
+  }
+
+  console.error("[SPOTIFY-FALLBACK-URL] FAILED", { videoId, errors });
+  throw new Error("Fallback audio URL gagal: " + errors.join(" | "));
+}
+
 async function fallbackDownloader(
   videoId: string,
 ): Promise<{ buffer: Buffer; mime: string }> {
@@ -810,64 +888,100 @@ export async function resolveSpotifyHtmlAudio(id: string): Promise<{
   audioUrl: string;
 }> {
   const track = getSpotifyTrackById(id);
-  console.info("[SPOTIFY-RESOLVE] START", { id: String(id), title: track.title, artist: track.artist, previewUrl: track.previewUrl || null, thumbnail: track.thumbnail || null });
   const cached = spotifyHtmlAudioCache.get(String(id));
 
-  if (cached && Date.now() - cached.createdAt < 10 * 60 * 1000) {
-    console.info("[SPOTIFY-RESOLVE] CACHE HIT", { id: String(id), url: cached.url });
-    return { track, audioUrl: cached.url };
-  }
-
-  // SpotSaver previewUrl adalah sumber pertama. Ini yang paling ringan dan
-  // memang sudah disediakan khusus untuk playback preview.
-  if (track.previewUrl) {
-    console.info("[SPOTIFY-RESOLVE] USING SPOTSAVER PREVIEW", {
-      id: String(id),
-      url: track.previewUrl,
-    });
-    spotifyHtmlAudioCache.set(String(id), {
-      url: track.previewUrl,
-      createdAt: Date.now(),
-    });
-    return { track, audioUrl: track.previewUrl };
-  }
-
-  // Bila SpotSaver tidak memberi preview, baru coba resolver penuh seperti
-  // pola HIROBOT: YouTube Music -> Y2Mate.
-  try {
-    console.info("[SPOTIFY-RESOLVE] PREVIEW MISSING, TRY YTM", {
-      id: String(id),
-      query: track.title + " " + track.artist,
-    });
-    const results = await ytmSearch(track.title + " " + track.artist);
-    console.info("[SPOTIFY-RESOLVE] YTM RESULTS", {
-      id: String(id),
-      count: results.length,
-      first: results[0] || null,
-    });
-    if (results.length) {
-      const audioUrl = await y2mateGetMp3Url(results[0].videoId);
-      console.info("[SPOTIFY-RESOLVE] Y2MATE URL READY", {
-        id: String(id),
-        videoId: results[0].videoId,
-        url: audioUrl,
-      });
-      spotifyHtmlAudioCache.set(String(id), {
-        url: audioUrl,
-        createdAt: Date.now(),
-      });
-      return { track, audioUrl };
-    }
-  } catch (error) {
-    loggerSafeSpotify("Y2MATE resolve gagal", error);
-  }
-
-  console.error("[SPOTIFY-RESOLVE] FAILED", {
+  console.info("[SPOTIFY-RESOLVE] START", {
     id: String(id),
     title: track.title,
     artist: track.artist,
     hasPreview: Boolean(track.previewUrl),
   });
+
+  if (cached && Date.now() - cached.createdAt < 10 * 60 * 1000) {
+    console.info("[SPOTIFY-RESOLVE] CACHE HIT", {
+      id: String(id),
+      host: (() => {
+        try { return new URL(cached.url).host; } catch { return "INVALID_URL"; }
+      })(),
+    });
+    return { track, audioUrl: cached.url };
+  }
+
+  // Ikuti pola HIROBOT untuk mendapatkan audio penuh.
+  try {
+    console.info("[SPOTIFY-RESOLVE] YTM SEARCH", {
+      id: String(id),
+      query: track.title + " " + track.artist,
+    });
+
+    const results = await ytmSearch(track.title + " " + track.artist);
+    console.info("[SPOTIFY-RESOLVE] YTM RESULT", {
+      id: String(id),
+      count: results.length,
+      first: results[0] || null,
+    });
+
+    if (results.length) {
+      try {
+        const audioUrl = await y2mateGetMp3Url(results[0].videoId);
+        spotifyHtmlAudioCache.set(String(id), {
+          url: audioUrl,
+          createdAt: Date.now(),
+        });
+        console.info("[SPOTIFY-RESOLVE] Y2MATE OK", {
+          id: String(id),
+          videoId: results[0].videoId,
+          host: (() => {
+            try { return new URL(audioUrl).host; } catch { return "INVALID_URL"; }
+          })(),
+        });
+        return { track, audioUrl };
+      } catch (error) {
+        console.warn("[SPOTIFY-RESOLVE] Y2MATE FAILED", {
+          id: String(id),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      try {
+        const audioUrl = await fallbackAudioUrl(results[0].videoId);
+        spotifyHtmlAudioCache.set(String(id), {
+          url: audioUrl,
+          createdAt: Date.now(),
+        });
+        console.info("[SPOTIFY-RESOLVE] FALLBACK URL OK", {
+          id: String(id),
+          host: (() => {
+            try { return new URL(audioUrl).host; } catch { return "INVALID_URL"; }
+          })(),
+        });
+        return { track, audioUrl };
+      } catch (error) {
+        console.warn("[SPOTIFY-RESOLVE] FALLBACK URL FAILED", {
+          id: String(id),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  } catch (error) {
+    console.warn("[SPOTIFY-RESOLVE] YTM FAILED", {
+      id: String(id),
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Preview hanya fallback terakhir; jangan download dari server karena CDN
+  // preview dapat menolak request server dengan HTTP 403.
+  if (track.previewUrl) {
+    console.warn("[SPOTIFY-RESOLVE] USING PREVIEW LAST RESORT", {
+      id: String(id),
+      host: (() => {
+        try { return new URL(track.previewUrl!).host; } catch { return "INVALID_URL"; }
+      })(),
+    });
+    return { track, audioUrl: track.previewUrl };
+  }
+
   throw new Error("Audio lagu tidak tersedia.");
 }
 
