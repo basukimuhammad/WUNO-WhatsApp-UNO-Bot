@@ -1,4 +1,4 @@
-const SPOTIFY_PLAYER_BUILD = "WUNO-SPOTIFY-2026-09-27-R12";
+const SPOTIFY_PLAYER_BUILD = "WUNO-SPOTIFY-2026-09-27-R13";
 
 type SpotifyHtmlTrack = { id: string; title: string; artist: string; album: string; duration: string; thumbnail: string | null; previewUrl: string | null; audioUrl?: string; };
 
@@ -11,7 +11,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   console.info("[SPOTIFY-HTML] BUILD", {
     version: SPOTIFY_PLAYER_BUILD,
     trackId: t?.id || null,
-    htmlVersion: "ws-resolve-r12",
+    htmlVersion: "ws-chunk-blob-r13",
   });
 
   if (!t) {
@@ -49,6 +49,10 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   let ws = null;
   let wsOpened = false;
   let requestSeq = 0;
+  let wsPending = new Map();
+  let blobUrl = null;
+  let loading = false;
+  let loaded = false;
 
   function log(label, extra) {
     try { console.log("[WUNO-SPOTIFY]", Object.assign({ label: label }, extra || {})); } catch (_) {}
@@ -133,8 +137,8 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 
   function toAbsoluteUrl(url) {
     if (!url) return "";
-    if (/^https?:\/\//i.test(url)) return url;
-    return apiOrigin.replace(/\/$/, "") + (url.startsWith("/") ? url : "/" + url);
+    if (/^https?:\\//i.test(url)) return url;
+    return apiOrigin.replace(/\\/$/, "") + (url.startsWith("/") ? url : "/" + url);
   }
 
   function useAudio(url, source) {
@@ -166,48 +170,29 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     }
   }
 
-  function resolveThroughWebSocket() {
+  function connectWebSocket() {
     return new Promise(function (resolve, reject) {
       if (!wsUrl || !window.WebSocket) {
         reject(new Error("WebSocket tidak tersedia"));
         return;
       }
-
-      const rid = requestId();
-      let settled = false;
-
-      function fail(err) {
-        if (settled) return;
-        settled = true;
-        try { if (ws) ws.close(); } catch (_) {}
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-
-      function done(value) {
-        if (settled) return;
-        settled = true;
-        resolve(value);
+      if (ws && ws.readyState === 1) {
+        resolve();
+        return;
       }
 
       try {
         log("WS_CONNECT", { url: wsUrl });
         ws = new WebSocket(wsUrl);
-
-        const timeout = setTimeout(function () {
-          log("WS_TIMEOUT", { requestId: rid });
-          fail(new Error("WebSocket timeout"));
-        }, 20000);
+        const timer = setTimeout(function () {
+          if (!wsOpened) reject(new Error("WebSocket timeout"));
+        }, 15000);
 
         ws.onopen = function () {
+          clearTimeout(timer);
           wsOpened = true;
-          log("WS_OPEN", { requestId: rid });
-          status("🔄 Mencari sumber audio...");
-          ws.send(JSON.stringify({
-            type: "spotifyResolve",
-            requestId: rid,
-            id: trackId
-          }));
-          log("WS_SEND_RESOLVE", { requestId: rid, id: trackId });
+          log("WS_OPEN");
+          resolve();
         };
 
         ws.onmessage = function (event) {
@@ -218,48 +203,25 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
             log("WS_BAD_JSON", { message: String(err) });
             return;
           }
-
-          log("WS_MESSAGE", {
-            requestId: rid,
-            type: data && data.type,
-            success: data && data.success,
-            message: data && data.message
-          });
-
-          if (!data || data.requestId !== rid) return;
-
-          clearTimeout(timeout);
-
-          if (!data.success) {
-            fail(new Error(data.message || "Resolver audio gagal"));
-            return;
-          }
-
-          if (data.cover) {
-            cover.src = toAbsoluteUrl(data.cover);
-            log("WS_COVER_URL", { url: data.cover });
-          }
-
-          if (!data.audioUrl) {
-            fail(new Error("Server tidak mengembalikan audioUrl"));
-            return;
-          }
-
-          done(data);
+          const pending = data && data.requestId ? wsPending.get(data.requestId) : null;
+          if (!pending) return;
+          wsPending.delete(data.requestId);
+          if (data.success) pending.resolve(data);
+          else pending.reject(new Error(data.message || "Aksi Spotify gagal"));
         };
 
         ws.onerror = function () {
-          log("WS_ERROR", { requestId: rid, opened: wsOpened });
-          clearTimeout(timeout);
-          fail(new Error("WebSocket error"));
+          wsOpened = false;
+          log("WS_ERROR");
         };
 
         ws.onclose = function (event) {
-          log("WS_CLOSE", {
-            requestId: rid,
-            code: event.code,
-            reason: event.reason || ""
+          wsOpened = false;
+          log("WS_CLOSE", { code: event.code, reason: event.reason || "" });
+          wsPending.forEach(function (pending) {
+            pending.reject(new Error("WebSocket terputus"));
           });
+          wsPending.clear();
         };
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));
@@ -267,27 +229,109 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     });
   }
 
+  function sendWsAction(action, timeoutMs) {
+    return connectWebSocket().then(function () {
+      return new Promise(function (resolve, reject) {
+        const rid = requestId();
+        const timer = setTimeout(function () {
+          wsPending.delete(rid);
+          reject(new Error("WebSocket timeout"));
+        }, timeoutMs || 30000);
+        wsPending.set(rid, {
+          resolve: function (value) { clearTimeout(timer); resolve(value); },
+          reject: function (error) { clearTimeout(timer); reject(error); }
+        });
+        try {
+          ws.send(JSON.stringify(Object.assign({}, action, { requestId: rid })));
+        } catch (err) {
+          clearTimeout(timer);
+          wsPending.delete(rid);
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      });
+    });
+  }
+
+  function b64ToBytes(value) {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  async function loadAudioFromWebSocket() {
+    const meta = await sendWsAction({ type: "spotifyResolve", id: trackId }, 120000);
+    if (meta.coverDataUrl) cover.src = meta.coverDataUrl;
+    if (!meta.audioReady || !meta.audioTotal) {
+      throw new Error("Server tidak menyiapkan audio");
+    }
+
+    const parts = new Array(meta.audioTotal);
+    let next = 0;
+    let completed = 0;
+    let failure = null;
+
+    async function worker() {
+      while (!failure) {
+        const n = next++;
+        if (n >= meta.audioTotal) return;
+        try {
+          const part = await sendWsAction({
+            type: "spotifyChunk",
+            id: trackId,
+            n
+          }, 60000);
+          parts[n] = b64ToBytes(part.data);
+          completed++;
+          status("⏳ Mengunduh audio " + Math.round(completed / meta.audioTotal * 100) + "%...");
+        } catch (error) {
+          failure = error instanceof Error ? error : new Error(String(error));
+          return;
+        }
+      }
+    }
+
+    await Promise.all([
+      worker(),
+      worker(),
+      worker()
+    ]);
+    if (failure) throw failure;
+
+    if (blobUrl) {
+      try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+    }
+    blobUrl = URL.createObjectURL(new Blob(parts, {
+      type: meta.audioMime || "audio/mpeg"
+    }));
+    return blobUrl;
+  }
+
   async function startAudio() {
+    if (loaded && blobUrl) {
+      const p = audio.play();
+      if (p && p.catch) p.catch(function () { status("▶️ Tekan Play pada kontrol audio"); });
+      return;
+    }
+    if (loading) return;
+    loading = true;
     playBtn.disabled = true;
     playBtn.textContent = "⏳ Menyiapkan...";
 
     log("PLAY_CLICK", { trackId: trackId });
 
     try {
-      const result = await resolveThroughWebSocket();
-      log("RESOLVE_OK", {
-        audioUrl: result.audioUrl,
-        cover: result.cover || null,
-        title: result.title || null
-      });
-      useAudio(result.audioUrl, "websocket-proxy");
+      const audioUrl = await loadAudioFromWebSocket();
+      useAudio(audioUrl, "websocket-blob");
+      loaded = true;
+      status("✅ Audio siap — tekan ▶ jika belum mulai");
     } catch (err) {
-      log("WS_RESOLVE_FAILED", {
+      log("WS_AUDIO_FAILED", {
         message: err && err.message ? err.message : String(err)
       });
-      status("⚠️ WebSocket gagal, mencoba audio langsung...");
-      fallbackDirect();
+      status("❌ Audio tidak tersedia: " + (err && err.message ? err.message : "gagal"));
     } finally {
+      loading = false;
       playBtn.disabled = false;
       playBtn.textContent = "▶ Putar lagu";
     }
