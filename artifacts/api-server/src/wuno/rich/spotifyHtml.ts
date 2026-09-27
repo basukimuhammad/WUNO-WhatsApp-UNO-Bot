@@ -11,7 +11,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   console.info("[SPOTIFY-HTML] BUILD", {
     version: SPOTIFY_PLAYER_BUILD,
     trackId: t?.id || null,
-    htmlVersion: "ws-resolve-r12",
+    htmlVersion: "ws-chunk-blob-r13",
   });
 
   if (!t) {
