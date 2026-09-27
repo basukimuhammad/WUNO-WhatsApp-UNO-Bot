@@ -7,7 +7,7 @@ import ytdl from "ytdl-core";
 import { roomState, getSpotifyLiveRoom, joinSpotifyLiveRoom, leaveSpotifyLiveRoom, spotifyLiveRoomIsHost, setSpotifyLiveTrack, toggleSpotifyLive, syncSpotifyLive, sendSpotifyLive, touchSpotifyLiveMember, addSpotifyLiveChat, type SpotifyLiveMember } from "./wuno/spotifyLive/runtime";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { getSpotifyAudio, getSpotifyAudioById, resolveSpotifyHtmlAudio, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
+import { getSpotifyAudio, getSpotifyAudioById, getSpotifyAudioChunkById, getSpotifyAudioMetaById, getSpotifyCoverDataById, resolveSpotifyHtmlAudio, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -703,27 +703,41 @@ wss.on("connection",(ws,req)=>{
       try {
         if (action.type === "spotifyResolve") {
           const id = String(action.id || "");
-          const { track, audioUrl } = await resolveSpotifyHtmlAudio(id);
-
-          const proxyAudio =
-            "/api/spotify/proxy?url=" +
-            encodeURIComponent(audioUrl) +
-            "&ref=" +
-            encodeURIComponent("https://y2mate.gs/");
-
-          const proxyCover = track.thumbnail
-            ? "/api/spotify/proxy?url=" + encodeURIComponent(track.thumbnail) +
-              "&ref=" + encodeURIComponent("https://open.spotify.com/")
-            : null;
+          const meta = await getSpotifyAudioMetaById(id);
+          let coverDataUrl: string | null = null;
+          try {
+            coverDataUrl = await getSpotifyCoverDataById(id);
+          } catch (error) {
+            logger.warn({ id, err: error }, "[SPOTIFY] Cover rich HTML gagal");
+          }
 
           ws.send(JSON.stringify({
             type: "spotifyActionResult",
             requestId,
             success: true,
-            audioUrl: proxyAudio,
-            cover: proxyCover,
-            title: track.title,
-            artist: track.artist,
+            audioReady: true,
+            audioSize: meta.size,
+            audioTotal: meta.total,
+            audioMime: meta.mime,
+            coverDataUrl,
+            title: meta.track.title,
+            artist: meta.track.artist,
+          }));
+          return;
+        }
+
+        if (action.type === "spotifyChunk") {
+          const id = String(action.id || "");
+          const chunk = await getSpotifyAudioChunkById(id, Number(action.n));
+          ws.send(JSON.stringify({
+            type: "spotifyAudioChunk",
+            requestId,
+            success: true,
+            id,
+            n: chunk.n,
+            total: chunk.total,
+            mime: chunk.mime,
+            data: chunk.data,
           }));
           return;
         }
