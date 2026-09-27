@@ -42,9 +42,11 @@ export async function sendRichHtml(
     );
   }
 
-  const wsUrl =
-    origin.replace(/^http/i, origin.startsWith("https") ? "wss" : "ws") +
-    "/ws/games";
+  const wsOrigin = new URL(origin);
+  if (wsOrigin.protocol === "https:") wsOrigin.protocol = "wss:";
+  else if (wsOrigin.protocol === "http:") wsOrigin.protocol = "ws:";
+  else throw new Error("PUBLIC_GAME_ORIGIN harus memakai http atau https.");
+  const wsUrl = wsOrigin.toString().replace(/\/$/, "") + "/ws/games";
   const room = encodeURIComponent(roomIdOverride || chat.message.from);
   const player = encodeURIComponent(chat.message.userNumber);
   const name = encodeURIComponent(
