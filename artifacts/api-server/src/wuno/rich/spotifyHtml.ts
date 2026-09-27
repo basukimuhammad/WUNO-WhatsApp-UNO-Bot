@@ -19,17 +19,13 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   }
 
   const trackId = JSON.stringify(t.id);
-  const initialCover = t.thumbnail
-    ? "__WUNO_API_ORIGIN__/api/spotify/cover/" + encodeURIComponent(t.id)
-    : "";
-
   return `<!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>*{box-sizing:border-box}body{margin:0;background:transparent;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.wrap{width:100%;max-width:410px;margin:auto;padding:14px}.card{background:linear-gradient(180deg,#383838 0%,#151515 48%,#090909 100%);border-radius:20px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.45)}.brand{color:#1ed760;font-size:14px;font-weight:900;letter-spacing:1px;margin-bottom:12px}.query{text-align:center;color:#aaa;font-size:11px;margin-bottom:12px}.cover{width:100%;aspect-ratio:1;display:block;object-fit:cover;border-radius:14px;background:#242424}.meta{text-align:center;padding:12px 4px}.title{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{font-size:12px;color:#aaa;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}button{width:100%;margin-top:10px;border:0;border-radius:999px;padding:13px 18px;background:#1ed760;color:#000;font-size:15px;font-weight:800}button:disabled{opacity:.55}audio{width:100%;margin-top:10px}.info{text-align:center;color:#777;font-size:10px;margin-top:10px;min-height:14px}</style>
 </head><body><div class="wrap"><div class="card">
 <div class="brand">♫ SPOTIFY</div>
 <div class="query">Hasil untuk: ${esc(query)}</div>
-<img class="cover" id="cover" src="${esc(initialCover)}" alt="">
+<img class="cover" id="cover" alt="">
 <div class="meta"><div class="title" id="title">${esc(t.title)}</div><div class="artist" id="artist">${esc(t.artist || "Unknown Artist")}${t.album ? " • " + esc(t.album) : ""}</div></div>
 <button id="playBtn" type="button">▶ Putar lagu</button>
 <audio id="audio" controls preload="metadata"></audio>
@@ -41,10 +37,9 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
   const playBtn = document.getElementById("playBtn");
   const info = document.getElementById("info");
   const trackId = ${trackId};
-  const wsUrl = __WUNO_WS_URL__;
+   const wsUrl = normalizeWebSocketUrl(__WUNO_WS_URL__);
   const apiOrigin = "__WUNO_API_ORIGIN__";
   const directAudioUrl = apiOrigin + "/api/spotify/audio/" + encodeURIComponent(trackId);
-  const directCoverUrl = "__WUNO_API_ORIGIN__/api/spotify/cover/" + encodeURIComponent(trackId);
 
   let ws = null;
   let wsOpened = false;
@@ -71,7 +66,6 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     origin: "__WUNO_API_ORIGIN__",
     wsUrl: wsUrl,
     directAudioUrl: directAudioUrl,
-    directCoverUrl: directCoverUrl,
     trackId: trackId
   });
 
@@ -140,6 +134,23 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     if (/^https?:\\//i.test(url)) return url;
     return apiOrigin.replace(/\\/$/, "") + (url.startsWith("/") ? url : "/" + url);
   }
+
+   function normalizeWebSocketUrl(value) {
+     const raw = String(value || "").trim();
+     if (!raw) return "";
+     try {
+       const parsed = new URL(raw, window.location.href);
+       if (parsed.protocol === "http:") parsed.protocol = "ws:";
+       if (parsed.protocol === "https:") parsed.protocol = "wss:";
+       if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
+         throw new Error("Protokol WebSocket tidak valid");
+       }
+       return parsed.toString();
+     } catch (err) {
+       log("WS_URL_INVALID", { value: raw, message: String(err) });
+       return "";
+     }
+   }
 
   function useAudio(url, source) {
     if (!url) throw new Error("URL audio kosong");
@@ -343,7 +354,6 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     log("WINDOW_ERROR", { message: event.message || null });
   });
 
-  cover.src = directCoverUrl;
 })();
 </script>
 </body></html>`;
