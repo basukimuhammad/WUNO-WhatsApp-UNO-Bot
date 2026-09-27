@@ -1020,32 +1020,36 @@ export async function getSpotifyAudioById(
     return { track, buffer: cached.buffer, mime: cached.mime };
   }
 
-  // SpotSaver preview adalah sumber pertama. Jika preview kosong/gagal,
-  // gunakan resolver YouTube Music yang sudah dipakai fitur Spotify biasa.
-  if (track.previewUrl) {
-    try {
-      const audio = await downloadBinary(track.previewUrl, BASE);
-      spotifyAudioCache.set(String(id), { ...audio, createdAt: Date.now() });
-      return { track, ...audio };
-    } catch {
-      // Lanjut ke fallback agar player tetap mendapatkan audio.
-    }
-  }
-
-  const results = await ytmSearch(track.title + " " + track.artist);
-  if (!results.length) {
-    throw new Error("Audio Spotify tidak tersedia");
-  }
-
-  let audio: { buffer: Buffer; mime: string };
   try {
-    audio = await y2mateGet(results[0].videoId);
-  } catch {
-    audio = await fallbackDownloader(results[0].videoId);
-  }
+    // Ikuti pola HIROBOT: cari sumber YouTube Music lebih dulu agar player
+    // mendapat audio penuh, bukan preview Spotify yang biasanya hanya 30 detik.
+    const results = await ytmSearch(track.title + " " + track.artist);
+    if (!results.length) {
+      throw new Error("Lagu tidak ditemukan di YouTube Music");
+    }
 
-  spotifyAudioCache.set(String(id), { ...audio, createdAt: Date.now() });
-  return { track, ...audio };
+    let audio: { buffer: Buffer; mime: string };
+    try {
+      audio = await y2mateGet(results[0].videoId);
+    } catch {
+      audio = await fallbackDownloader(results[0].videoId);
+    }
+
+    spotifyAudioCache.set(String(id), { ...audio, createdAt: Date.now() });
+    return { track, ...audio };
+  } catch (fullAudioError) {
+    // Preview hanya dipakai jika seluruh resolver audio penuh sedang gagal.
+    if (track.previewUrl) {
+      try {
+        const audio = await downloadBinary(track.previewUrl, BASE);
+        spotifyAudioCache.set(String(id), { ...audio, createdAt: Date.now() });
+        return { track, ...audio };
+      } catch {
+        // Lempar error yang lebih berguna dari resolver penuh di bawah.
+      }
+    }
+    throw fullAudioError;
+  }
 }
 
 
