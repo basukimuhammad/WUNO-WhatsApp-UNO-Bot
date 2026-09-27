@@ -40,6 +40,7 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
    const wsUrl = normalizeWebSocketUrl(__WUNO_WS_URL__);
   const apiOrigin = "__WUNO_API_ORIGIN__";
   const directAudioUrl = apiOrigin + "/api/spotify/audio/" + encodeURIComponent(trackId);
+   const directCoverUrl = apiOrigin + "/api/spotify/cover/" + encodeURIComponent(trackId);
 
   let ws = null;
   let wsOpened = false;
@@ -76,7 +77,6 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
 
   cover.addEventListener("error", function () {
     log("COVER_ERROR");
-    status("⚠️ Cover gagal dimuat");
   });
 
   audio.addEventListener("loadstart", function () {
@@ -179,6 +179,43 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
       status("❌ Audio tidak tersedia");
       playBtn.disabled = false;
     }
+
+   async function loadCoverFromHttp() {
+     const response = await fetch(directCoverUrl, {
+       method: "GET",
+       cache: "no-store"
+     });
+     if (!response.ok) throw new Error("Cover HTTP " + response.status);
+     const coverBlob = await response.blob();
+     if (!coverBlob.size) throw new Error("Cover kosong");
+     cover.src = URL.createObjectURL(coverBlob);
+   }
+
+   async function loadAudioFromHttp() {
+     const controller = new AbortController();
+     const timer = setTimeout(function () { controller.abort(); }, 120000);
+     try {
+       const response = await fetch(directAudioUrl, {
+         method: "GET",
+         cache: "no-store",
+         signal: controller.signal
+       });
+       if (!response.ok) throw new Error("Audio HTTP " + response.status);
+       const audioBlob = await response.blob();
+       if (!audioBlob.size) throw new Error("Audio kosong");
+       if (blobUrl) {
+         try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+       }
+       blobUrl = URL.createObjectURL(new Blob([audioBlob], {
+         type: audioBlob.type && audioBlob.type.indexOf("audio/") === 0
+           ? audioBlob.type
+           : "audio/mpeg"
+       }));
+       return blobUrl;
+     } finally {
+       clearTimeout(timer);
+     }
+   }
   }
 
   function connectWebSocket() {
@@ -332,8 +369,22 @@ export function buildSpotifyPlayerHtml(token: string, query: string, tracks: Spo
     log("PLAY_CLICK", { trackId: trackId });
 
     try {
-      const audioUrl = await loadAudioFromWebSocket();
-      useAudio(audioUrl, "websocket-blob");
+       let audioUrl;
+       try {
+         status("⏳ Mengambil audio...");
+         loadCoverFromHttp().catch(function (error) {
+           log("COVER_HTTP_FAILED", { message: String(error) });
+         });
+         audioUrl = await loadAudioFromHttp();
+         useAudio(audioUrl, "https-proxy-blob");
+       } catch (httpError) {
+         log("HTTP_AUDIO_FAILED", {
+           message: httpError && httpError.message ? httpError.message : String(httpError)
+         });
+         status("⏳ Jalur utama gagal, mencoba cadangan...");
+         audioUrl = await loadAudioFromWebSocket();
+         useAudio(audioUrl, "websocket-blob");
+       }
       loaded = true;
       status("✅ Audio siap — tekan ▶ jika belum mulai");
     } catch (err) {
