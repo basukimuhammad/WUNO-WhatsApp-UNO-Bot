@@ -9,6 +9,7 @@ const Y2MATE_API = "https://eta.etacloud.org";
 const Y2MATE_KEY = "c6a644f406b57d0dd83837c868a7482e";
 const UA = "Mozilla/5.0 (Linux; Android 13; SM-A536E) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36";
 const SESSION_TTL = 15 * 60 * 1000;
+export const SPOTIFY_AUDIO_CHUNK_BYTES = 192 * 1024;
 
 type Track = {
   id: string | null;
@@ -220,11 +221,30 @@ async function downloadBinary(
     throw new Error("Audio HTTP " + response.status);
   }
 
+  const contentType = String(
+    response.headers.get("content-type") || "",
+  ).split(";")[0].trim().toLowerCase();
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const header = buffer.subarray(0, 64).toString("latin1");
+
+  if (!buffer.length) {
+    throw new Error("Audio kosong");
+  }
+  if (
+    /^(text\/html|application\/json|text\/plain)$/i.test(contentType) ||
+    /^\s*(<!doctype|<html|\{)/i.test(header)
+  ) {
+    throw new Error("Sumber audio mengembalikan halaman error");
+  }
+
   return {
-    buffer: Buffer.from(await response.arrayBuffer()),
-    mime: String(
-      response.headers.get("content-type") || "audio/mpeg",
-    ).split(";")[0],
+    buffer,
+    mime:
+      contentType &&
+      contentType !== "application/octet-stream" &&
+      contentType !== "binary/octet-stream"
+        ? contentType
+        : "audio/mpeg",
   };
 }
 
@@ -1028,6 +1048,74 @@ export async function getSpotifyAudioById(
   return { track, ...audio };
 }
 
+
+export async function getSpotifyAudioMetaById(id: string): Promise<{
+  track: Track;
+  size: number;
+  total: number;
+  mime: string;
+}> {
+  const audio = await getSpotifyAudioById(id);
+  return {
+    track: audio.track,
+    size: audio.buffer.length,
+    total: Math.ceil(audio.buffer.length / SPOTIFY_AUDIO_CHUNK_BYTES),
+    mime: audio.mime || "audio/mpeg",
+  };
+}
+
+export async function getSpotifyAudioChunkById(
+  id: string,
+  chunkNumber: number,
+): Promise<{
+  track: Track;
+  n: number;
+  total: number;
+  mime: string;
+  data: string;
+}> {
+  if (!Number.isInteger(chunkNumber) || chunkNumber < 0) {
+    throw new Error("Nomor chunk audio tidak valid");
+  }
+
+  const audio = await getSpotifyAudioById(id);
+  const total = Math.ceil(audio.buffer.length / SPOTIFY_AUDIO_CHUNK_BYTES);
+  if (chunkNumber >= total) {
+    throw new Error("Chunk audio di luar batas");
+  }
+
+  const start = chunkNumber * SPOTIFY_AUDIO_CHUNK_BYTES;
+  const part = audio.buffer.subarray(start, start + SPOTIFY_AUDIO_CHUNK_BYTES);
+  return {
+    track: audio.track,
+    n: chunkNumber,
+    total,
+    mime: audio.mime || "audio/mpeg",
+    data: part.toString("base64"),
+  };
+}
+
+export async function getSpotifyCoverDataById(
+  id: string,
+): Promise<string | null> {
+  const track = getSpotifyTrackById(id);
+  if (!track.thumbnail) return null;
+
+  const response = await fetch(track.thumbnail, {
+    headers: {
+      "User-Agent": UA,
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      Referer: "https://open.spotify.com/",
+    },
+  });
+  if (!response.ok) throw new Error("Cover HTTP " + response.status);
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const mime = String(
+    response.headers.get("content-type") || "image/jpeg",
+  ).split(";")[0];
+  return `data:${mime};base64,${buffer.toString("base64")}`;
+}
 
 export async function sendSpotifyTrack(
   token: string,
