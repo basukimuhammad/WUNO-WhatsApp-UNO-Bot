@@ -9,8 +9,7 @@ import app, { startWunoBot } from "./app";
 import { logger } from "./lib/logger";
 import { getSpotifyAudio, getSpotifyAudioById, getSpotifyAudioChunkById, getSpotifyAudioMetaById, getSpotifyCoverDataById, resolveSpotifyHtmlAudio, getSpotifyTrack, getSpotifyTrackById, resolveSpotifyTrack, sendSpotifyTrack, spotifySearch } from "./wuno/spotify";
 
-const rawPort = process.env["PORT"];
-if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
+const rawPort = process.env["PORT"]?.trim() || "8080";
 const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) throw new Error(`Invalid PORT value: "${rawPort}"`);
 
@@ -852,6 +851,18 @@ wss.on("connection",(ws,req)=>{
 });
 
 server.listen(port, "0.0.0.0", () => {
-  logger.info({ port, address: "0.0.0.0" }, "Server listening");
-  void startWunoBot();
+  logger.info(
+    {
+      port,
+      address: "0.0.0.0",
+      deployment: process.env.REPLIT_DEPLOYMENT || null,
+    },
+    "Server listening",
+  );
+
+  // Give the deployment health check a fast, responsive HTTP server before
+  // launching Chromium/WhatsApp initialization, which can be resource-heavy.
+  setTimeout(() => {
+    void startWunoBot();
+  }, 8000).unref();
 });
