@@ -5,7 +5,6 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { startBot } from "./wuno";
 import { gameCenterHtml } from "./wuno/gameCenter";
-import { updateBotStatus } from "./wuno/status";
 
 const app: Express = express();
 
@@ -34,18 +33,24 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+app.get("/", (_req, res) => {
+  res.type("text/plain").send("WUNO WhatsApp UNO Bot is running.");
+});
+
 app.get("/wuno/game", (_req, res) => {
   res.type("html").send(gameCenterHtml);
 });
 
-void startBot().catch((error: unknown) => {
-  logger.error({ err: error }, "[BOT] Gagal menyalakan bot");
-  updateBotStatus(
-    "error",
-    "Bot gagal menyala. Periksa log layanan untuk detail error.",
-    null,
-    null,
-  );
-});
+export async function startWunoBot() {
+  logger.info("[BOT] Starting WUNO bot initialization...");
+  try {
+    await startBot();
+    logger.info("[BOT] WUNO bot initialization completed.");
+  } catch (error) {
+    logger.error({ err: error }, "[BOT] Bot initialization failed");
+    // Do not crash the HTTP/WebSocket server if WhatsApp initialization fails.
+    // The deployment can stay healthy and the error remains visible in logs.
+  }
+}
 
 export default app;
