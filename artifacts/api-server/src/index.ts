@@ -15,6 +15,11 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) throw new Error(`Invalid PORT value: "${rawPort}"`);
 
 const server = createServer(app);
+
+app.get("/api/healthz", (_req, res) => {
+  res.status(200).type("text/plain").send("ok");
+});
+
 const wss = new WebSocketServer({ server, path: "/ws/games" });
 
 // --- Spotify biasa ---
