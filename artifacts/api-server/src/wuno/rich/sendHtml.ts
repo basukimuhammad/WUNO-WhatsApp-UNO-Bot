@@ -2,25 +2,45 @@ import { AIRich } from "@xbibzlibrary/whatsbibz";
 import type { Chat } from "../lib/Chat";
 import { startRichClient } from "./client";
 
-function getPublicOrigin() {
+function getPublicOrigin(game: string) {
   const explicit = process.env.PUBLIC_GAME_ORIGIN?.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-
-  const domains = process.env.REPLIT_DOMAINS?.trim();
-  if (domains) {
-    const domain = domains
-      .split(",")
-      .map((value) => value.trim())
-      .find(Boolean);
-    if (domain) {
-      return domain.startsWith("http")
-        ? domain.replace(/\/$/, "")
-        : `https://${domain}`;
-    }
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
   }
 
-  const devDomain = process.env.REPLIT_DEV_DOMAIN?.trim();
-  if (devDomain) return `https://${devDomain}`;
+  const domains = process.env.REPLIT_DOMAINS?.trim();
+  const domain = domains
+    ?.split(",")
+    .map((value) => value.trim())
+    .find(Boolean);
+
+  if (domain) {
+    const origin = domain.startsWith("http")
+      ? domain.replace(/\/$/, "")
+      : `https://${domain}`;
+
+    // The workspace exposes a private/authenticated *.replit.dev host.
+    // Do not leak that host into Spotify Rich HTML, because the Rich WebView
+    // cannot reliably open it. Published deployments expose a public
+    // *.replit.app (or custom) domain through REPLIT_DOMAINS.
+    if (game === "spotify" && /\.replit\.dev$/i.test(new URL(origin).hostname)) {
+      console.warn("[RICH-HTML] Spotify refusing workspace replit.dev origin", {
+        origin,
+        replitDeployment: process.env.REPLIT_DEPLOYMENT || null,
+        hint: "Set PUBLIC_GAME_ORIGIN to the published *.replit.app/custom domain.",
+      });
+      return "";
+    }
+
+    return origin;
+  }
+
+  // Keep the development fallback for non-Spotify Rich pages so existing
+  // game previews continue to work exactly as before.
+  if (game !== "spotify") {
+    const devDomain = process.env.REPLIT_DEV_DOMAIN?.trim();
+    if (devDomain) return `https://${devDomain}`;
+  }
 
   return "";
 }
@@ -34,7 +54,7 @@ export async function sendRichHtml(
   hostOverride = false,
 ) {
   const sock = await startRichClient();
-  const origin = getPublicOrigin();
+  const origin = getPublicOrigin(game);
 
   if (!origin) {
     throw new Error(
