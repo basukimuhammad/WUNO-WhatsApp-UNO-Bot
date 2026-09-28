@@ -5,7 +5,6 @@ router = "application"
 deploymentTarget = "autoscale"
 build = ["pnpm", "--dir", "artifacts/api-server", "run", "build"]
 run = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
-healthCheckPath = "/api/healthz"
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
